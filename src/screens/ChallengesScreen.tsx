@@ -13,71 +13,11 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../App";
 import { colors, radius } from "../theme";
 import BottomNav from "../components/BottomNav";
+import type { Challenge } from "../types/challenge";
+import { dailyChallenge, weeklyChallenges } from "../mocks/challenges";
+import ChallengeCard from "../components/ChallengeCard";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-interface Challenge {
-  emoji: string;
-  title: string;
-  desc: string;
-  exp: number;
-  progress: number;
-  total: number;
-  done?: boolean;
-}
-
-const dailyChallenge: Challenge = {
-  emoji: "🥦",
-  title: "Mestre da nutrição",
-  desc: "complete 3 lições hoje sem errar nenhuma questão",
-  exp: 500,
-  progress: 1,
-  total: 3,
-};
-
-const weeklyChallenges: Challenge[] = [
-  {
-    emoji: "🔥",
-    title: "Desafio de ofensiva",
-    desc: "mantenha a ofensiva por 10 dias",
-    exp: 500,
-    progress: 3,
-    total: 10,
-  },
-  {
-    emoji: "📈",
-    title: "Hora de avançar",
-    desc: "complete 8 lições",
-    exp: 500,
-    progress: 6,
-    total: 8,
-  },
-  {
-    emoji: "🎓",
-    title: "Adquirindo conhecimento",
-    desc: "Entre no guia de estudo",
-    exp: 300,
-    progress: 0,
-    total: 1,
-  },
-  {
-    emoji: "📚",
-    title: "Sabe o básico",
-    desc: "complete a 1° unidade",
-    exp: 800,
-    progress: 1,
-    total: 5,
-  },
-  {
-    emoji: "📕",
-    title: "Primeira lição",
-    desc: "complete a primeira lição",
-    exp: 0,
-    progress: 1,
-    total: 1,
-    done: true,
-  },
-];
 
 const DailyChallengeCard = ({ c }: { c: Challenge }) => (
   <View style={styles.dailyCard}>
@@ -104,43 +44,6 @@ const DailyChallengeCard = ({ c }: { c: Challenge }) => (
       <View style={styles.dailyExpBadge}>
         <Text style={styles.dailyExpText}>+ {c.exp} exp</Text>
       </View>
-    </View>
-  </View>
-);
-
-const ChallengeCard = ({ c }: { c: Challenge }) => (
-  <View style={styles.challengeCard}>
-    <Text style={styles.challengeEmoji}>{c.emoji}</Text>
-    <View style={styles.challengeContent}>
-      <Text style={styles.challengeTitle}>{c.title}</Text>
-      <Text style={styles.challengeDesc}>{c.desc}</Text>
-      <View style={styles.challengeBarBg}>
-        <View
-          style={[
-            styles.challengeBarFill,
-            {
-              width: `${(c.progress / c.total) * 100}%`,
-              backgroundColor: colors.primary,
-            },
-          ]}
-        />
-      </View>
-    </View>
-    <View style={styles.challengeRight}>
-      {c.done ? (
-        <View style={styles.doneBadge}>
-          <Text style={styles.doneBadgeText}>Concluído</Text>
-        </View>
-      ) : (
-        <View style={styles.expBadge}>
-          <Text style={styles.expBadgeText}>+ {c.exp} exp</Text>
-        </View>
-      )}
-      {!c.done && (
-        <Text style={styles.challengeProgress}>
-          {c.progress} / {c.total}
-        </Text>
-      )}
     </View>
   </View>
 );
@@ -175,7 +78,7 @@ const ChallengesScreen = () => {
           </Text>
           <View style={styles.challengeList}>
             {weeklyChallenges.map((c, i) => (
-              <ChallengeCard key={i} c={c} />
+              <ChallengeCard key={i} challenge={c} />
             ))}
           </View>
         </ScrollView>
@@ -220,75 +123,6 @@ const styles = StyleSheet.create({
   },
   challengeList: {
     gap: 12,
-  },
-  challengeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  challengeEmoji: {
-    fontSize: 24,
-  },
-  challengeContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  challengeTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.foreground,
-  },
-  challengeDesc: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
-  challengeBarBg: {
-    width: "100%",
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.muted,
-    marginTop: 8,
-    overflow: "hidden",
-  },
-  challengeBarFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  challengeRight: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  doneBadge: {
-    backgroundColor: "rgba(34, 197, 94, 0.1)",
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-  },
-  doneBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  expBadge: {
-    backgroundColor: "rgba(234, 179, 8, 0.1)",
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-  },
-  expBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.energy,
-  },
-  challengeProgress: {
-    fontSize: 12,
-    color: colors.mutedForeground,
   },
   // Daily challenge card
   dailyCard: {

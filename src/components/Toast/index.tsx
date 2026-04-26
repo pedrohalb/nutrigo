@@ -1,18 +1,15 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { colors, radius } from '../theme';
+import { styles } from './styles';
 
 export type ToastHandle = {
-  /** Exibe o toast e chama `onDone` ao terminar a animação de saída. */
   show: (onDone?: () => void) => void;
 };
 
 type Props = {
   message: string;
-  /** Ícone exibido à esquerda. Padrão: Check verde. */
   icon?: React.ReactNode;
-  /** Tempo em ms que o toast fica visível. Padrão: 2000. */
   duration?: number;
 };
 
@@ -59,30 +56,3 @@ const Toast = forwardRef<ToastHandle, Props>(
 );
 
 export default Toast;
-
-const styles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    bottom: 32,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: radius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  icon: {
-    marginRight: 8,
-  },
-  text: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});

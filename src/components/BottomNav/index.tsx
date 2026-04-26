@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { Home, Trophy, User } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
-import { colors } from '../theme';
+import type { RootStackParamList } from '../../../App';
+import { colors } from '../../styles/colors';
+import { styles } from './styles';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,25 +41,5 @@ const BottomNav = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.popover,
-    paddingVertical: 12,
-    paddingBottom: 20,
-  },
-  tab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    minWidth: 48,
-    minHeight: 48,
-  },
-});
 
 export default BottomNav;

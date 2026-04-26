@@ -26,7 +26,7 @@ const LoginScreen = () => {
   const navigation = useNavigation<Nav>();
 
   const handleLogin = () => {
-    navigation.navigate('Home');
+    navigation.navigate('Onboarding');
   };
 
   const handleSignup = () => {

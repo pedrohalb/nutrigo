@@ -13,19 +13,9 @@ import LessonScreen from './src/screens/LessonScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ChallengesScreen from './src/screens/ChallengesScreen';
 import StudyGuideScreen from './src/screens/StudyGuideScreen';
+import type { RootStackParamList } from './src/types/navigation';
 
-export type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  ForgotPassword: undefined;
-  ResetPassword: undefined;
-  Onboarding: undefined;
-  Home: undefined;
-  Lesson: undefined;
-  Profile: undefined;
-  Challenges: undefined;
-  StudyGuide: undefined;
-};
+export type { RootStackParamList };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

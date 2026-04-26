@@ -10,22 +10,18 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
+import PasswordField from '../components/PasswordField';
+import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
+import PasswordRequirements from '../components/PasswordRequirements';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
 import Toast, { type ToastHandle } from '../components/Toast';
+import { STRENGTH } from '../constants/passwordStrength';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-const STRENGTH = [
-  null,
-  { label: 'Fraca', color: '#ef4444' },
-  { label: 'Média', color: '#f97316' },
-  { label: 'Boa', color: '#eab308' },
-  { label: 'Forte', color: colors.primary },
-] as const;
 
 const SignupScreen = () => {
   const navigation = useNavigation<Nav>();
@@ -94,103 +90,33 @@ const SignupScreen = () => {
           </View>
 
           {/* Senha */}
-          <View style={styles.fieldset}>
-            <Text style={styles.legend}>Senha</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[styles.input, styles.flex]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••••••"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color={colors.mutedForeground} />
-                ) : (
-                  <Eye size={20} color={colors.mutedForeground} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          <PasswordField
+            label="Senha"
+            value={password}
+            onChangeText={setPassword}
+            show={showPassword}
+            onToggle={() => setShowPassword(!showPassword)}
+          />
 
           {/* Strength meter */}
           {password.length > 0 && (
-            <View style={styles.strengthContainer}>
-              <View style={styles.strengthBar}>
-                {([1, 2, 3, 4] as const).map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.strengthSegment,
-                      {
-                        backgroundColor:
-                          i <= strengthCount && strengthInfo
-                            ? strengthInfo.color
-                            : colors.border,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-              {strengthInfo && (
-                <Text style={[styles.strengthLabel, { color: strengthInfo.color }]}>
-                  {strengthInfo.label}
-                </Text>
-              )}
-            </View>
+            <PasswordStrengthMeter
+              strengthCount={strengthCount}
+              strengthInfo={strengthInfo}
+            />
           )}
 
           {/* Confirmar senha */}
-          <View style={styles.fieldset}>
-            <Text style={styles.legend}>Confirmar senha</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[styles.input, styles.flex]}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="••••••••••••"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff size={20} color={colors.mutedForeground} />
-                ) : (
-                  <Eye size={20} color={colors.mutedForeground} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          <PasswordField
+            label="Confirmar senha"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            show={showConfirmPassword}
+            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+          />
 
-          {/* Password requirements */}
-          <View style={styles.reqBox}>
-            <Text style={styles.reqTitle}>Requisitos da senha:</Text>
-            {requirements.map((req, i) => (
-              <View key={i} style={styles.reqRow}>
-                {req.met ? (
-                  <Check size={14} color={colors.primary} />
-                ) : (
-                  <X size={14} color={colors.destructive} />
-                )}
-                <Text
-                  style={[
-                    styles.reqLabel,
-                    { color: req.met ? colors.primary : colors.destructive },
-                  ]}
-                >
-                  {req.label}
-                </Text>
-              </View>
-            ))}
-          </View>
+          {/* Requisitos da senha */}
+          <PasswordRequirements requirements={requirements} />
 
           {/* Button */}
           <TouchableOpacity
@@ -256,54 +182,6 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     padding: 0,
     margin: 0,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  strengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: -8,
-  },
-  strengthBar: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 4,
-  },
-  strengthSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-  },
-  strengthLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  reqBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: radius.lg,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  reqTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.foreground,
-    marginBottom: 8,
-  },
-  reqRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  reqLabel: {
-    fontSize: 14,
   },
   primaryButton: {
     backgroundColor: colors.primary,

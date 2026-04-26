@@ -15,37 +15,11 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
+import { OBJECTIVES, TOPICS, GOALS } from '../mocks/onboarding';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const STEPS = ['bem-vindo', 'objetivos', 'aprendizado', 'metas'] as const;
-
-const OBJECTIVES = [
-  'Perder peso',
-  'Manter o peso',
-  'Ganhar peso',
-  'Ganhar músculo',
-  'Modificar minha dieta',
-  'Controlar estresse',
-  'Controlar calorias',
-];
-
-const TOPICS = [
-  'Fundamentos da Nutrição',
-  'Macronutrientes e Micronutrientes',
-  'Planejamento Alimentar',
-  'Entendendo Rótulos',
-  'Alimentação Funcional',
-  'Mitos e Verdades sobre Dietas',
-  'Como a Nutrição Impacta o dia a dia?',
-];
-
-const GOALS = [
-  { label: 'Casual', detail: '5 min / dia' },
-  { label: 'Regular', detail: '10 min / dia' },
-  { label: 'Sério', detail: '15 min / dia' },
-  { label: 'Intenso', detail: '20 min / dia' },
-];
 
 const OnboardingScreen = () => {
   const navigation = useNavigation<Nav>();
