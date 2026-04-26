@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,47 +7,45 @@ import {
   StyleSheet,
   FlatList,
   Image,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { Send } from 'lucide-react-native';
-import { colors, radius } from '../theme';
+} from "react-native";
+import { Send } from "lucide-react-native";
+import { colors, radius } from "../theme";
 
 interface Message {
   id: number;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
 const mockResponses: Record<string, string> = {
   default:
-    'Ótima pergunta! Posso te ajudar com isso. O que mais você gostaria de saber sobre nutrição?',
-  'alimentação equilibrada':
-    'Uma alimentação equilibrada é aquela que oferece ao corpo todos os nutrientes necessários para funcionar bem. Isso significa variar os alimentos e incluir diferentes grupos alimentares — como frutas, verduras, legumes, proteínas, cereais e gorduras saudáveis — nas quantidades adequadas. Consumir apenas um tipo de alimento, exagerar em um único grupo ou excluir completamente nutrientes importantes pode causar deficiências e prejudicar a saúde ao longo do tempo.',
+    "Ótima pergunta! Posso te ajudar com isso. O que mais você gostaria de saber sobre nutrição?",
+  "alimentação equilibrada":
+    "Uma alimentação equilibrada é aquela que oferece ao corpo todos os nutrientes necessários para funcionar bem. Isso significa variar os alimentos e incluir diferentes grupos alimentares — como frutas, verduras, legumes, proteínas, cereais e gorduras saudáveis — nas quantidades adequadas. Consumir apenas um tipo de alimento, exagerar em um único grupo ou excluir completamente nutrientes importantes pode causar deficiências e prejudicar a saúde ao longo do tempo.",
 };
 
 const AIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
   const send = () => {
     const text = input.trim();
     if (!text) return;
 
-    const userMsg: Message = { id: Date.now(), role: 'user', content: text };
+    const userMsg: Message = { id: Date.now(), role: "user", content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    setInput('');
+    setInput("");
 
     setTimeout(() => {
       const key = Object.keys(mockResponses).find(
-        (k) => k !== 'default' && text.toLowerCase().includes(k)
+        (k) => k !== "default" && text.toLowerCase().includes(k),
       );
       const reply = key ? mockResponses[key] : mockResponses.default;
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), role: 'assistant', content: reply },
+        { id: Date.now(), role: "assistant", content: reply },
       ]);
     }, 800);
   };
@@ -55,17 +53,19 @@ const AIChat = () => {
   if (messages.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>
-          Olá Pedro! Como posso te ajudar hoje?
-        </Text>
-        <View style={styles.mascotCircle}>
-          <Image
-            source={require('../../assets/images/broccoli-mascot.png')}
-            style={styles.mascotImage}
-            resizeMode="contain"
-          />
+        <View style={styles.emptyCenterContent}>
+          <Text style={styles.emptyTitle}>
+            Olá Pedro! Como posso te ajudar hoje?
+          </Text>
+          <View style={styles.mascotCircle}>
+            <Image
+              source={require("../../assets/images/broccoli-mascot.png")}
+              style={styles.mascotImage}
+              resizeMode="contain"
+            />
+          </View>
         </View>
-        <View style={styles.inputWrapper}>
+        <View style={styles.inputContainer}>
           <ChatInput input={input} setInput={setInput} onSend={send} />
         </View>
       </View>
@@ -73,11 +73,7 @@ const AIChat = () => {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.chatContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={120}
-    >
+    <View style={styles.chatContainer}>
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -90,23 +86,19 @@ const AIChat = () => {
           <View
             style={[
               styles.messageBubbleRow,
-              m.role === 'user' ? styles.userRow : styles.assistantRow,
+              m.role === "user" ? styles.userRow : styles.assistantRow,
             ]}
           >
             <View
               style={[
                 styles.messageBubble,
-                m.role === 'user'
-                  ? styles.userBubble
-                  : styles.assistantBubble,
+                m.role === "user" ? styles.userBubble : styles.assistantBubble,
               ]}
             >
               <Text
                 style={[
                   styles.messageText,
-                  m.role === 'user'
-                    ? styles.userText
-                    : styles.assistantText,
+                  m.role === "user" ? styles.userText : styles.assistantText,
                 ]}
               >
                 {m.content}
@@ -116,7 +108,7 @@ const AIChat = () => {
         )}
       />
       <ChatInput input={input} setInput={setInput} onSend={send} />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -153,35 +145,54 @@ const styles = StyleSheet.create({
   /* Empty state */
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  emptyCenterContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
-    marginBottom: 16,
-    textAlign: 'center',
+    marginBottom: 24,
+    textAlign: "center",
   },
   mascotCircle: {
-    width: 192,
-    height: 192,
-    borderRadius: 96,
-    backgroundColor: 'rgba(43, 102, 70, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
+    width: 224,
+    height: 224,
+    borderRadius: 112,
+    backgroundColor: "#2b6646",
+    alignItems: "center",
+    justifyContent: "center",
   },
   mascotImage: {
-    width: 160,
-    height: 160,
+    width: 188,
+    height: 188,
   },
-  inputWrapper: {
-    width: '100%',
-    marginTop: 'auto',
+  inputContainer: {
+    width: "100%",
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   /* Chat */
   chatContainer: {
     flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   messageList: {
     paddingVertical: 12,
@@ -191,13 +202,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   userRow: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   assistantRow: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: "80%",
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -224,8 +235,8 @@ const styles = StyleSheet.create({
   },
   /* Input */
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingTop: 8,
   },
@@ -243,8 +254,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

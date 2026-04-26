@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,17 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
+import Toast, { type ToastHandle } from '../components/Toast';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const STRENGTH = [
+  null,
+  { label: 'Fraca', color: '#ef4444' },
+  { label: 'Média', color: '#f97316' },
+  { label: 'Boa', color: '#eab308' },
+  { label: 'Forte', color: colors.primary },
+] as const;
 
 const SignupScreen = () => {
   const navigation = useNavigation<Nav>();
@@ -25,6 +34,7 @@ const SignupScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const toastRef = useRef<ToastHandle>(null);
 
   const requirements = [
     { label: 'Mínimo 8 caracteres', met: password.length >= 8 },
@@ -33,15 +43,17 @@ const SignupScreen = () => {
     { label: 'Um caracter especial', met: /[^A-Za-z0-9]/.test(password) },
   ];
 
+  const strengthCount = requirements.filter((r) => r.met).length as 0 | 1 | 2 | 3 | 4;
+  const strengthInfo = STRENGTH[strengthCount];
+
   const allMet =
     requirements.every((r) => r.met) &&
     password === confirmPassword &&
     email.length > 0;
 
   const handleCreate = () => {
-    if (allMet) {
-      navigation.navigate('Onboarding');
-    }
+    if (!allMet) return;
+    toastRef.current?.show(() => navigation.navigate('Login'));
   };
 
   return (
@@ -106,6 +118,33 @@ const SignupScreen = () => {
             </View>
           </View>
 
+          {/* Strength meter */}
+          {password.length > 0 && (
+            <View style={styles.strengthContainer}>
+              <View style={styles.strengthBar}>
+                {([1, 2, 3, 4] as const).map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.strengthSegment,
+                      {
+                        backgroundColor:
+                          i <= strengthCount && strengthInfo
+                            ? strengthInfo.color
+                            : colors.border,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              {strengthInfo && (
+                <Text style={[styles.strengthLabel, { color: strengthInfo.color }]}>
+                  {strengthInfo.label}
+                </Text>
+              )}
+            </View>
+          )}
+
           {/* Confirmar senha */}
           <View style={styles.fieldset}>
             <Text style={styles.legend}>Confirmar senha</Text>
@@ -164,6 +203,8 @@ const SignupScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Toast ref={toastRef} message="Conta criada com sucesso!" />
     </SafeAreaView>
   );
 };
@@ -219,6 +260,29 @@ const styles = StyleSheet.create({
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: -8,
+  },
+  strengthBar: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  strengthSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+  },
+  strengthLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    minWidth: 40,
+    textAlign: 'right',
   },
   reqBox: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',

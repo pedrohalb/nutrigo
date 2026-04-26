@@ -48,7 +48,7 @@ const LoginScreen = () => {
           keyboardShouldPersistTaps="handled"
           bounces={false}
         >
-          {/* Green Header — oval shape */}
+          {/* Green Header */}
           <View style={styles.header}>
             <View style={styles.mascotCircle}>
               <Image
@@ -135,7 +135,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.accent,
   },
   flex: {
     flex: 1,
@@ -146,11 +146,10 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.accent,
     alignItems: 'center',
-    paddingTop: 44,
-    paddingBottom: 44,
-    marginTop: 12,
-    marginHorizontal: 16,
-    borderRadius: 64,
+    paddingTop: 40,
+    paddingBottom: 48,
+    borderBottomLeftRadius: 60,
+    borderBottomRightRadius: 60,
   },
   mascotCircle: {
     width: 112,

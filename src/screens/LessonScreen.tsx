@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,71 +6,93 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, CheckCircle } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
-import { colors, radius } from '../theme';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { X, CheckCircle, Flag } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../App";
+import { colors, radius } from "../theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const CORRECT_COLOR = "#22c55e";
+const WRONG_COLOR = "#ef4444";
+
 /* ─── Data types ─── */
 interface MultipleChoiceQuestion {
-  type: 'multiple-choice';
+  type: "multiple-choice";
   question: string;
   options: string[];
   correctIndex: number;
+  explanation: string;
 }
 
 interface ImageChoiceQuestion {
-  type: 'image-choice';
+  type: "image-choice";
   question: string;
   options: { label: string; emoji: string }[];
   correctIndex: number;
+  explanation: string;
 }
 
 interface FillBlankQuestion {
-  type: 'fill-blank';
+  type: "fill-blank";
   question: string;
   chips: string[];
   correctChip: string;
+  explanation: string;
 }
 
-type Question = MultipleChoiceQuestion | ImageChoiceQuestion | FillBlankQuestion;
+type Question =
+  | MultipleChoiceQuestion
+  | ImageChoiceQuestion
+  | FillBlankQuestion;
 
 /* ─── Sample lesson data ─── */
 const lessonQuestions: Question[] = [
   {
-    type: 'multiple-choice',
-    question: 'O que caracteriza uma alimentação equilibrada?',
+    type: "multiple-choice",
+    question: "O que caracteriza uma alimentação equilibrada?",
     options: [
-      'Consumir apenas alimentos de origem animal',
-      'Comer grandes quantidades de um único alimento',
-      'Incluir diferentes grupos alimentares em quantidades adequadas',
-      'Evitar totalmente carboidratos e gorduras',
+      "Consumir apenas alimentos de origem animal",
+      "Comer grandes quantidades de um único alimento",
+      "Incluir diferentes grupos alimentares em quantidades adequadas",
+      "Evitar totalmente carboidratos e gorduras",
     ],
     correctIndex: 2,
+    explanation:
+      "Uma alimentação equilibrada combina todos os grupos alimentares nas quantidades certas — carboidratos, proteínas, gorduras boas, vitaminas e minerais.",
   },
   {
-    type: 'image-choice',
+    type: "image-choice",
     question:
-      'Qual alimento é considerado uma opção saudável para o consumo diário, por ser rico em nutrientes importantes para o organismo?',
+      "Qual alimento é considerado uma opção saudável para o consumo diário, por ser rico em nutrientes importantes para o organismo?",
     options: [
-      { label: 'Coca-Cola', emoji: '🥤' },
-      { label: 'Bala', emoji: '🍬' },
-      { label: 'Salgadinho', emoji: '🍿' },
-      { label: 'Maçã', emoji: '🍎' },
+      { label: "Coca-Cola", emoji: "🥤" },
+      { label: "Bala", emoji: "🍬" },
+      { label: "Salgadinho", emoji: "🍿" },
+      { label: "Maçã", emoji: "🍎" },
     ],
     correctIndex: 3,
+    explanation:
+      "A maçã é rica em fibras, vitamina C e antioxidantes. Contribui para a saúde intestinal, imunidade e prevenção de doenças crônicas.",
   },
   {
-    type: 'fill-blank',
+    type: "fill-blank",
     question:
-      'Uma alimentação saudável deve incluir o consumo regular de ____, pois fornece vitaminas, minerais e fibras essenciais para o bom funcionamento do organismo.',
-    chips: ['Frituras', 'Frutas', 'Doces', 'Refrigerantes', 'Salgadinhos', 'Balas'],
-    correctChip: 'Frutas',
+      "Uma alimentação saudável deve incluir o consumo regular de ____, pois fornece vitaminas, minerais e fibras essenciais para o bom funcionamento do organismo.",
+    chips: [
+      "Frituras",
+      "Frutas",
+      "Doces",
+      "Refrigerantes",
+      "Salgadinhos",
+      "Balas",
+    ],
+    correctChip: "Frutas",
+    explanation:
+      "Frutas fornecem vitaminas, minerais e fibras que o organismo não produz sozinho. A OMS recomenda pelo menos 400g de frutas e vegetais por dia.",
   },
 ];
 
@@ -95,10 +117,7 @@ const ProgressHeader = ({
     </TouchableOpacity>
     <View style={styles.progressBarBg}>
       <View
-        style={[
-          styles.progressBarFill,
-          { width: `${(step / total) * 100}%` },
-        ]}
+        style={[styles.progressBarFill, { width: `${(step / total) * 100}%` }]}
       />
     </View>
     <Text style={styles.progressText}>
@@ -107,54 +126,54 @@ const ProgressHeader = ({
   </View>
 );
 
-/* ─── Next Button ─── */
-const NextButton = ({
-  onPress,
-  disabled,
-  label = 'Próximo',
-}: {
-  onPress: () => void;
-  disabled?: boolean;
-  label?: string;
-}) => (
-  <View style={styles.nextButtonWrapper}>
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={[styles.nextButton, disabled && styles.disabled]}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.nextButtonText}>{label}</Text>
-    </TouchableOpacity>
-  </View>
-);
-
 /* ─── Question screens ─── */
 const MultipleChoiceScreen = ({
   q,
   selected,
   onSelect,
+  answered,
+  isCorrect,
 }: {
   q: MultipleChoiceQuestion;
   selected: number | null;
   onSelect: (i: number) => void;
+  answered: boolean;
+  isCorrect: boolean | null;
 }) => (
-  <ScrollView style={styles.questionScroll} contentContainerStyle={styles.questionContent}>
+  <ScrollView
+    style={styles.questionScroll}
+    contentContainerStyle={styles.questionContent}
+  >
     <Text style={styles.questionText}>{q.question}</Text>
     <View style={styles.optionsList}>
-      {q.options.map((opt, i) => (
-        <TouchableOpacity
-          key={i}
-          onPress={() => onSelect(i)}
-          style={[
-            styles.mcOption,
-            selected === i && styles.mcOptionSelected,
-          ]}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.mcOptionText}>{opt}</Text>
-        </TouchableOpacity>
-      ))}
+      {q.options.map((opt, i) => {
+        const isSelected = selected === i;
+        const showCorrect = answered && isSelected && isCorrect === true;
+        const showWrong = answered && isSelected && isCorrect === false;
+        return (
+          <TouchableOpacity
+            key={i}
+            onPress={() => !answered && onSelect(i)}
+            style={[
+              styles.mcOption,
+              isSelected && !answered && styles.mcOptionSelected,
+              showCorrect && styles.mcOptionCorrect,
+              showWrong && styles.mcOptionWrong,
+            ]}
+            activeOpacity={answered ? 1 : 0.7}
+          >
+            <Text
+              style={[
+                styles.mcOptionText,
+                showCorrect && { color: CORRECT_COLOR },
+                showWrong && { color: WRONG_COLOR },
+              ]}
+            >
+              {opt}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   </ScrollView>
 );
@@ -163,28 +182,50 @@ const ImageChoiceScreen = ({
   q,
   selected,
   onSelect,
+  answered,
+  isCorrect,
 }: {
   q: ImageChoiceQuestion;
   selected: number | null;
   onSelect: (i: number) => void;
+  answered: boolean;
+  isCorrect: boolean | null;
 }) => (
-  <ScrollView style={styles.questionScroll} contentContainerStyle={styles.questionContent}>
+  <ScrollView
+    style={styles.questionScroll}
+    contentContainerStyle={styles.questionContent}
+  >
     <Text style={styles.questionText}>{q.question}</Text>
     <View style={styles.imageGrid}>
-      {q.options.map((opt, i) => (
-        <TouchableOpacity
-          key={i}
-          onPress={() => onSelect(i)}
-          style={[
-            styles.imageOption,
-            selected === i && styles.imageOptionSelected,
-          ]}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.imageEmoji}>{opt.emoji}</Text>
-          <Text style={styles.imageLabel}>{opt.label}</Text>
-        </TouchableOpacity>
-      ))}
+      {q.options.map((opt, i) => {
+        const isSelected = selected === i;
+        const showCorrect = answered && isSelected && isCorrect === true;
+        const showWrong = answered && isSelected && isCorrect === false;
+        return (
+          <TouchableOpacity
+            key={i}
+            onPress={() => !answered && onSelect(i)}
+            style={[
+              styles.imageOption,
+              isSelected && !answered && styles.imageOptionSelected,
+              showCorrect && styles.imageOptionCorrect,
+              showWrong && styles.imageOptionWrong,
+            ]}
+            activeOpacity={answered ? 1 : 0.7}
+          >
+            <Text style={styles.imageEmoji}>{opt.emoji}</Text>
+            <Text
+              style={[
+                styles.imageLabel,
+                showCorrect && { color: CORRECT_COLOR },
+                showWrong && { color: WRONG_COLOR },
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   </ScrollView>
 );
@@ -193,27 +234,49 @@ const FillBlankScreen = ({
   q,
   selected,
   onSelect,
+  answered,
+  isCorrect,
 }: {
   q: FillBlankQuestion;
   selected: string | null;
   onSelect: (chip: string) => void;
+  answered: boolean;
+  isCorrect: boolean | null;
 }) => (
-  <ScrollView style={styles.questionScroll} contentContainerStyle={styles.questionContent}>
+  <ScrollView
+    style={styles.questionScroll}
+    contentContainerStyle={styles.questionContent}
+  >
     <Text style={styles.questionText}>{q.question}</Text>
     <View style={styles.chipContainer}>
-      {q.chips.map((chip) => (
-        <TouchableOpacity
-          key={chip}
-          onPress={() => onSelect(chip)}
-          style={[
-            styles.chip,
-            selected === chip && styles.chipSelected,
-          ]}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.chipText}>{chip}</Text>
-        </TouchableOpacity>
-      ))}
+      {q.chips.map((chip) => {
+        const isSelected = selected === chip;
+        const showCorrect = answered && isSelected && isCorrect === true;
+        const showWrong = answered && isSelected && isCorrect === false;
+        return (
+          <TouchableOpacity
+            key={chip}
+            onPress={() => !answered && onSelect(chip)}
+            style={[
+              styles.chip,
+              isSelected && !answered && styles.chipSelected,
+              showCorrect && styles.chipCorrect,
+              showWrong && styles.chipWrong,
+            ]}
+            activeOpacity={answered ? 1 : 0.7}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                showCorrect && { color: CORRECT_COLOR },
+                showWrong && { color: WRONG_COLOR },
+              ]}
+            >
+              {chip}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   </ScrollView>
 );
@@ -227,7 +290,7 @@ const EncouragementScreen = () => (
       </Text>
     </View>
     <Image
-      source={require('../../assets/images/nutrigo-broccoli-encourage.png')}
+      source={require("../../assets/images/nutrigo-broccoli-encourage.png")}
       style={styles.encourageImage}
       resizeMode="contain"
     />
@@ -238,27 +301,42 @@ const LessonCompleteScreen = () => (
   <View style={styles.rewardScreen}>
     <Text style={styles.completeTitle}>Lição completa!</Text>
     <Image
-      source={require('../../assets/images/nutrigo-broccoli-celebrate.png')}
+      source={require("../../assets/images/nutrigo-broccoli-celebrate.png")}
       style={styles.celebrateImage}
       resizeMode="contain"
     />
     <View style={styles.statsRow}>
-      <View style={[styles.statCard, { borderColor: colors.streak }]}>
-        <Text style={[styles.statCardLabel, { color: colors.streak }]}>Total de EXP</Text>
-        <View style={styles.statCardRow}>
+      <View style={[styles.statCard, { borderColor: "#FFD901" }]}>
+        <View style={[styles.statCardHeader, { borderBottomWidth: 0 }]}>
+          <Text style={[styles.statCardLabel, { color: "#fff" }]}>
+            Total de EXP
+          </Text>
+        </View>
+        <View style={styles.statCardBody}>
           <Image
-            source={require('../../assets/images/icon-energy.png')}
+            source={require("../../assets/images/icon-energy.png")}
             style={styles.statCardIcon}
             resizeMode="contain"
           />
-          <Text style={[styles.statCardValue, { color: colors.streak }]}>100</Text>
+          <Text style={[styles.statCardValue, { color: "#FFD901" }]}>100</Text>
         </View>
       </View>
       <View style={[styles.statCard, { borderColor: colors.primary }]}>
-        <Text style={[styles.statCardLabel, { color: colors.primary }]}>Incrível</Text>
-        <View style={styles.statCardRow}>
-          <CheckCircle size={20} color={colors.primary} />
-          <Text style={[styles.statCardValue, { color: colors.primary }]}>100%</Text>
+        <View
+          style={[
+            styles.statCardHeader,
+            { backgroundColor: colors.primary, borderBottomWidth: 0 },
+          ]}
+        >
+          <Text style={[styles.statCardLabel, { color: "#fff" }]}>
+            Precisão
+          </Text>
+        </View>
+        <View style={styles.statCardBody}>
+          <CheckCircle size={32} color={colors.primary} />
+          <Text style={[styles.statCardValue, { color: colors.primary }]}>
+            100%
+          </Text>
         </View>
       </View>
     </View>
@@ -266,13 +344,13 @@ const LessonCompleteScreen = () => (
 );
 
 const StreakScreen = () => {
-  const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+  const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
   return (
     <View style={styles.rewardScreen}>
       <Text style={styles.streakNumber}>1</Text>
       <Text style={styles.streakLabel}>dia de ofensiva!</Text>
       <Image
-        source={require('../../assets/images/icon-fire.png')}
+        source={require("../../assets/images/icon-fire.png")}
         style={styles.streakFireIcon}
         resizeMode="contain"
       />
@@ -287,7 +365,9 @@ const StreakScreen = () => {
                 { backgroundColor: i === 0 ? colors.streak : colors.muted },
               ]}
             >
-              {i === 0 && <CheckCircle size={16} color={colors.primaryForeground} />}
+              {i === 0 && (
+                <CheckCircle size={16} color={colors.primaryForeground} />
+              )}
             </View>
           </View>
         ))}
@@ -309,54 +389,86 @@ const LessonScreen = () => {
   const [mcSelected, setMcSelected] = useState<number | null>(null);
   const [imgSelected, setImgSelected] = useState<number | null>(null);
   const [fillSelected, setFillSelected] = useState<string | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const isQuestionStep = step < lessonQuestions.length;
   const currentQuestion = isQuestionStep ? lessonQuestions[step] : null;
 
-  const canProceed = () => {
-    if (!isQuestionStep) return true;
-    if (currentQuestion?.type === 'multiple-choice') return mcSelected !== null;
-    if (currentQuestion?.type === 'image-choice') return imgSelected !== null;
-    if (currentQuestion?.type === 'fill-blank') return fillSelected !== null;
+  const isCorrect: boolean | null = (() => {
+    if (!answered || !currentQuestion) return null;
+    if (currentQuestion.type === "multiple-choice")
+      return mcSelected === currentQuestion.correctIndex;
+    if (currentQuestion.type === "image-choice")
+      return imgSelected === currentQuestion.correctIndex;
+    if (currentQuestion.type === "fill-blank")
+      return fillSelected === currentQuestion.correctChip;
+    return null;
+  })();
+
+  const hasSelection = (): boolean => {
+    if (!currentQuestion) return false;
+    if (currentQuestion.type === "multiple-choice") return mcSelected !== null;
+    if (currentQuestion.type === "image-choice") return imgSelected !== null;
+    if (currentQuestion.type === "fill-blank") return fillSelected !== null;
     return false;
   };
 
-  const handleNext = () => {
+  const canProceed = (): boolean => {
+    if (!isQuestionStep) return true;
+    if (answered) return true;
+    return hasSelection();
+  };
+
+  const handleAction = () => {
+    if (isQuestionStep && !answered) {
+      setAnswered(true);
+      setShowExplanation(false);
+      return;
+    }
     if (step < totalSteps - 1) {
-      setStep(step + 1);
+      setStep((s) => s + 1);
+      setAnswered(false);
+      setShowExplanation(false);
       setMcSelected(null);
       setImgSelected(null);
       setFillSelected(null);
     } else {
-      navigation.navigate('Home');
+      navigation.navigate("Home");
     }
   };
 
   const renderContent = () => {
     if (isQuestionStep && currentQuestion) {
       switch (currentQuestion.type) {
-        case 'multiple-choice':
+        case "multiple-choice":
           return (
             <MultipleChoiceScreen
               q={currentQuestion}
               selected={mcSelected}
               onSelect={setMcSelected}
+              answered={answered}
+              isCorrect={isCorrect}
             />
           );
-        case 'image-choice':
+        case "image-choice":
           return (
             <ImageChoiceScreen
               q={currentQuestion}
               selected={imgSelected}
               onSelect={setImgSelected}
+              answered={answered}
+              isCorrect={isCorrect}
             />
           );
-        case 'fill-blank':
+        case "fill-blank":
           return (
             <FillBlankScreen
               q={currentQuestion}
               selected={fillSelected}
               onSelect={setFillSelected}
+              answered={answered}
+              isCorrect={isCorrect}
             />
           );
       }
@@ -368,19 +480,81 @@ const LessonScreen = () => {
     return <StreakScreen />;
   };
 
+  const buttonLabel = isQuestionStep && !answered ? "Responder" : "Próximo";
+
   return (
     <SafeAreaView style={styles.safe}>
       <ProgressHeader
         step={Math.min(step + 1, totalSteps)}
         total={totalSteps}
-        onClose={() => navigation.navigate('Home')}
+        onClose={() => navigation.navigate("Home")}
       />
       <View style={styles.contentArea}>{renderContent()}</View>
-      <NextButton
-        onPress={handleNext}
-        disabled={!canProceed()}
-        label="Próximo"
-      />
+
+      <View
+        style={[
+          answered &&
+            isQuestionStep &&
+            isCorrect === true &&
+            styles.bottomCorrect,
+          answered &&
+            isQuestionStep &&
+            isCorrect === false &&
+            styles.bottomWrong,
+        ]}
+      >
+        {isQuestionStep && answered && currentQuestion && (
+          <View
+            style={[
+              styles.feedbackContainer,
+              { borderTopColor: isCorrect ? CORRECT_COLOR : WRONG_COLOR },
+            ]}
+          >
+            {(isCorrect === false || showExplanation) && (
+              <Text style={styles.explanationText}>
+                {currentQuestion.explanation}
+              </Text>
+            )}
+            <View style={styles.statusRow}>
+              <Text
+                style={[
+                  styles.statusLabel,
+                  { color: isCorrect ? CORRECT_COLOR : WRONG_COLOR },
+                ]}
+              >
+                {isCorrect ? "Correto" : "Incorreto"}
+              </Text>
+              {isCorrect && (
+                <TouchableOpacity
+                  onPress={() => setShowExplanation((v) => !v)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Flag
+                    size={20}
+                    color={CORRECT_COLOR}
+                    fill={showExplanation ? CORRECT_COLOR : "transparent"}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+        <View style={styles.nextButtonWrapper}>
+          <TouchableOpacity
+            onPress={handleAction}
+            disabled={!canProceed()}
+            style={[
+              styles.nextButton,
+              !canProceed() && styles.disabled,
+              answered && isCorrect === true && styles.nextButtonCorrect,
+              answered && isCorrect === false && styles.nextButtonWrong,
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.nextButtonText}>{buttonLabel}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -392,8 +566,8 @@ const styles = StyleSheet.create({
   },
   /* Progress header */
   progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -403,16 +577,16 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: colors.muted,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 6,
     backgroundColor: colors.primary,
   },
   progressText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   /* Next button */
@@ -425,12 +599,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: radius.lg,
-    alignItems: 'center',
+    alignItems: "center",
   },
   nextButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primaryForeground,
+  },
+  nextButtonCorrect: {
+    backgroundColor: CORRECT_COLOR,
+  },
+  nextButtonWrong: {
+    backgroundColor: WRONG_COLOR,
+  },
+  bottomCorrect: {
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+  },
+  bottomWrong: {
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
   },
   disabled: {
     opacity: 0.4,
@@ -438,6 +624,28 @@ const styles = StyleSheet.create({
   /* Content */
   contentArea: {
     flex: 1,
+  },
+  /* Feedback area */
+  feedbackContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 2,
+    borderTopWidth: 2,
+  },
+  explanationText: {
+    fontSize: 13,
+    color: colors.mutedForeground,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: "700",
   },
   /* Questions */
   questionScroll: {
@@ -449,7 +657,7 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
     marginBottom: 32,
   },
@@ -465,24 +673,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   mcOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(43, 102, 70, 0.1)',
+    borderColor: colors.mutedForeground,
+    backgroundColor: colors.muted,
+  },
+  mcOptionCorrect: {
+    borderColor: CORRECT_COLOR,
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+  },
+  mcOptionWrong: {
+    borderColor: WRONG_COLOR,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
   },
   mcOptionText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   /* Image choice */
   imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   imageOption: {
-    width: '47%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "47%",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     borderWidth: 2,
     borderColor: colors.border,
@@ -491,21 +707,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   imageOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(43, 102, 70, 0.1)',
+    borderColor: colors.mutedForeground,
+    backgroundColor: colors.muted,
+  },
+  imageOptionCorrect: {
+    borderColor: CORRECT_COLOR,
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+  },
+  imageOptionWrong: {
+    borderColor: WRONG_COLOR,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
   },
   imageEmoji: {
     fontSize: 48,
   },
   imageLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   /* Fill blank */
   chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   chip: {
@@ -517,19 +741,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   chipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(43, 102, 70, 0.1)',
+    borderColor: colors.mutedForeground,
+    backgroundColor: colors.muted,
+  },
+  chipCorrect: {
+    borderColor: CORRECT_COLOR,
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+  },
+  chipWrong: {
+    borderColor: WRONG_COLOR,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
   },
   chipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   /* Reward screens */
   rewardScreen: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
   },
   /* Encouragement */
@@ -538,7 +770,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: radius.lg,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -548,7 +780,7 @@ const styles = StyleSheet.create({
   },
   encourageText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   encourageImage: {
@@ -558,7 +790,7 @@ const styles = StyleSheet.create({
   /* Lesson complete */
   completeTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.primary,
     marginBottom: 16,
   },
@@ -568,78 +800,93 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 16,
   },
   statCard: {
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 2,
     borderRadius: radius.lg,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    backgroundColor: "#f3f1e6",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    minWidth: 130,
+  },
+  statCardHeader: {
+    width: "100%",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 2,
+    backgroundColor: "#FFD901",
   },
   statCardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: "700",
   },
-  statCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+  statCardBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   statCardIcon: {
-    width: 20,
-    height: 20,
+    width: 45,
+    height: 30,
   },
   statCardValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: "800",
   },
   /* Streak */
   streakNumber: {
     fontSize: 60,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.streak,
   },
   streakLabel: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.streak,
     marginBottom: 8,
   },
   streakFireIcon: {
-    width: 64,
-    height: 64,
+    width: 200,
+    height: 150,
     marginBottom: 24,
   },
   daysRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 16,
   },
   dayItem: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   dayLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   dayCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   streakWarning: {
     backgroundColor: colors.card,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: radius.lg,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -650,7 +897,7 @@ const styles = StyleSheet.create({
   streakWarningText: {
     fontSize: 12,
     color: colors.mutedForeground,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 

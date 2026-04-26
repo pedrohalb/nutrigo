@@ -10,7 +10,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const tabs = [
   { icon: Home, route: 'Home' as const, label: 'Home' },
-  { icon: Trophy, route: 'StudyGuide' as const, label: 'Guia' },
+  { icon: Trophy, route: 'Challenges' as const, label: 'Desafios' },
   { icon: User, route: 'Profile' as const, label: 'Perfil' },
 ];
 

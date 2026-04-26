@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,38 +6,38 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Pencil, Send } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
-import BottomNav from '../components/BottomNav';
-import { colors, radius } from '../theme';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowLeft, LogOut, Pencil, Send } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../App";
+import BottomNav from "../components/BottomNav";
+import { colors, radius } from "../theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const challenges = [
   {
-    emoji: '🔥',
-    title: 'Desafio de ofensiva',
-    desc: 'mantenha a ofensiva por 10 dias',
+    emoji: "🔥",
+    title: "Desafio de ofensiva",
+    desc: "mantenha a ofensiva por 10 dias",
     exp: 500,
     progress: 3,
     total: 10,
   },
   {
-    emoji: '📈',
-    title: 'Hora de avançar',
-    desc: 'complete 8 lições',
+    emoji: "📈",
+    title: "Hora de avançar",
+    desc: "complete 8 lições",
     exp: 800,
     progress: 6,
     total: 8,
   },
   {
-    emoji: '📕',
-    title: 'Primeira lição',
-    desc: 'complete a primeira lição',
+    emoji: "📕",
+    title: "Primeira lição",
+    desc: "complete a primeira lição",
     exp: 0,
     progress: 1,
     total: 1,
@@ -49,19 +49,21 @@ const ProfileScreen = () => {
   const navigation = useNavigation<Nav>();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('Home')}
+            onPress={() => navigation.navigate("Home")}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <ArrowLeft size={24} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>perfil</Text>
-          <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Send size={20} color={colors.foreground} />
+          <TouchableOpacity
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <LogOut size={20} color={colors.foreground} />
           </TouchableOpacity>
         </View>
 
@@ -74,7 +76,9 @@ const ProfileScreen = () => {
             <View style={styles.userInfoLeft}>
               <View style={styles.nameRow}>
                 <Text style={styles.userName}>Pedro Henrique</Text>
-                <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Pencil size={14} color={colors.primary} />
                 </TouchableOpacity>
               </View>
@@ -90,7 +94,7 @@ const ProfileScreen = () => {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Image
-                source={require('../../assets/images/icon-fire.png')}
+                source={require("../../assets/images/icon-fire.png")}
                 style={styles.statIcon}
                 resizeMode="contain"
               />
@@ -101,7 +105,7 @@ const ProfileScreen = () => {
             </View>
             <View style={styles.statCard}>
               <Image
-                source={require('../../assets/images/icon-energy.png')}
+                source={require("../../assets/images/icon-energy.png")}
                 style={styles.statIcon}
                 resizeMode="contain"
               />
@@ -127,7 +131,7 @@ const ProfileScreen = () => {
                         styles.challengeBarFill,
                         {
                           width: `${(c.progress / c.total) * 100}%`,
-                          backgroundColor: c.done ? colors.energy : colors.primary,
+                          backgroundColor: colors.primary,
                         },
                       ]}
                     />
@@ -154,7 +158,7 @@ const ProfileScreen = () => {
           </View>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Challenges')}
+            onPress={() => navigation.navigate("Challenges")}
             style={styles.seeAllBtn}
           >
             <Text style={styles.seeAllText}>Ver tudo</Text>
@@ -176,16 +180,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   scrollContent: {
@@ -193,9 +197,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 8,
     marginBottom: 24,
   },
@@ -203,13 +207,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   userName: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
   },
   userEmail: {
@@ -222,28 +226,29 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primaryForeground,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
     marginBottom: 12,
   },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 24,
   },
   statCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -254,24 +259,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statIcon: {
-    width: 24,
-    height: 24,
+    width: 70,
+    height: 50,
   },
   statCardValue: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
+    textAlign: "center",
   },
   statCardLabel: {
     fontSize: 12,
     color: colors.mutedForeground,
+    textAlign: "center",
   },
   challengeList: {
     gap: 12,
   },
   challengeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -289,7 +296,7 @@ const styles = StyleSheet.create({
   },
   challengeTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.foreground,
   },
   challengeDesc: {
@@ -297,42 +304,41 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   challengeBarBg: {
-    width: '100%',
+    width: "100%",
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.muted,
     marginTop: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   challengeBarFill: {
     height: 8,
     borderRadius: 4,
   },
   challengeRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     gap: 4,
   },
   doneBadge: {
-    borderWidth: 1,
-    borderColor: colors.primary,
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 2,
   },
   doneBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   expBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+    backgroundColor: "rgba(234, 179, 8, 0.1)",
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 2,
   },
   expBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.energy,
   },
   challengeProgress: {
