@@ -1,7 +1,7 @@
 export type MascotImage = 'cheer' | 'reading' | 'thumbsup' | 'love';
 
 export interface LessonNode {
-  id: number;
+  id: string;
   type: 'star' | 'lock' | 'chest' | 'book';
   status: 'completed' | 'current' | 'locked';
   offsetX: number;
@@ -15,9 +15,11 @@ export interface Mascot {
 }
 
 export interface Unit {
+  id: string;
   section: number;
   unit: number;
   title: string;
+  status: string;
   mascots: Mascot[];
   nodes: LessonNode[];
 }

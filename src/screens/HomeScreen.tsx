@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Easing,
   Dimensions,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -26,7 +27,8 @@ import Svg, { Path, Circle } from "react-native-svg";
 import BottomNav from "../components/BottomNav";
 import { colors, radius } from "../theme";
 import type { LessonNode, MascotImage, Unit } from "../types/lesson";
-import { units } from "../mocks/units";
+import { unitsApi } from "../services/api/units";
+import { meApi } from "../services/api/me";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -76,7 +78,7 @@ const UnitHeader = ({ unit }: { unit: Unit }) => {
           <Text style={styles.unitHeaderTitle}>{unit.title}</Text>
         </View>
         <TouchableOpacity
-          onPress={() => navigation.navigate("StudyGuide")}
+          onPress={() => navigation.navigate("StudyGuide", { unitId: unit.id })}
           style={styles.unitHeaderBtn}
           activeOpacity={0.7}
         >
@@ -489,8 +491,10 @@ const UnitNodePath = ({ unit }: { unit: Unit }) => {
               <NodeIcon
                 node={node}
                 onPress={
-                  node.status !== "locked"
-                    ? () => navigation.navigate("Lesson")
+                  node.status !== "locked" && node.type === "star"
+                    ? () => navigation.navigate("Lesson", { lessonId: node.id })
+                    : node.status !== "locked" && node.type !== "star"
+                    ? () => {}
                     : undefined
                 }
               />
@@ -507,15 +511,89 @@ const UnitNodePath = ({ unit }: { unit: Unit }) => {
 
 // SectionList data
 type UnitSection = Unit & { data: Unit[] };
-const sections: UnitSection[] = units.map((unit) => ({
-  ...unit,
-  data: [unit],
-}));
 
 // ── Main screen ────────────────────────────────────────────────────────────
 const HomeScreen = () => {
-  const streak = 3;
-  const energy = 2;
+  const [sections, setSections] = useState<UnitSection[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [{ sections: apiSections }, me] = await Promise.all([
+        unitsApi.getUnits(),
+        meApi.getMe(),
+      ]);
+
+      const mapped: UnitSection[] = apiSections.flatMap((s) =>
+        s.units.map((u) => ({ ...u, data: [u] as Unit[] }))
+      );
+      setSections(mapped);
+      setStreak(me.stats.streak_days);
+      setLevel(me.stats.level);
+      setLoadError(false);
+
+      // Poll while any unit is still generating
+      const anyGenerating = apiSections.some((s) =>
+        s.units.some((u) => u.status === "generating" || u.status === "skeleton")
+      );
+      if (!anyGenerating && pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    } catch {
+      if (sections.length === 0) setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [sections.length]);
+
+  useEffect(() => {
+    loadData();
+    pollRef.current = setInterval(loadData, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [loadData]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 12, color: colors.mutedForeground }}>
+            Preparando sua trilha...
+          </Text>
+        </View>
+        <BottomNav />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <Text
+            style={{ color: colors.mutedForeground, textAlign: "center", marginBottom: 20 }}
+          >
+            Não foi possível carregar. Verifique sua conexão.
+          </Text>
+          <TouchableOpacity
+            onPress={loadData}
+            style={styles.retryBtn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryBtnText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+        <BottomNav />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -536,14 +614,14 @@ const HomeScreen = () => {
               style={styles.statIcon}
               resizeMode="contain"
             />
-            <Text style={styles.statValue}>{energy}</Text>
+            <Text style={styles.statValue}>{level}</Text>
           </View>
         </View>
 
         <SectionList
           style={styles.scroll}
           sections={sections}
-          keyExtractor={(item) => `unit-${item.unit}`}
+          keyExtractor={(item) => `unit-${item.id}`}
           renderSectionHeader={({ section }) => <UnitHeader unit={section} />}
           renderItem={({ item }) => <UnitNodePath unit={item} />}
           stickySectionHeadersEnabled
@@ -562,6 +640,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 16 },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: radius.full,
+  },
+  retryBtnText: { color: colors.primaryForeground, fontWeight: "600", fontSize: 15 },
 
   // Stats bar (fixed above list)
   statsBar: {

@@ -2,11 +2,11 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { email: string };
   Onboarding: undefined;
   Home: undefined;
-  Lesson: undefined;
+  Lesson: { lessonId: string };
   Profile: undefined;
   Challenges: undefined;
-  StudyGuide: undefined;
+  StudyGuide: { unitId: string };
 };

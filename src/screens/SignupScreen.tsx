@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
@@ -20,6 +21,7 @@ import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
 import Toast, { type ToastHandle } from '../components/Toast';
 import { STRENGTH } from '../constants/passwordStrength';
+import { useAuth } from '../contexts/AuthContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,7 +32,9 @@ const SignupScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const toastRef = useRef<ToastHandle>(null);
+  const { signup } = useAuth();
 
   const requirements = [
     { label: 'Mínimo 8 caracteres', met: password.length >= 8 },
@@ -47,9 +51,19 @@ const SignupScreen = () => {
     password === confirmPassword &&
     email.length > 0;
 
-  const handleCreate = () => {
-    if (!allMet) return;
-    toastRef.current?.show(() => navigation.navigate('Login'));
+  const handleCreate = async () => {
+    if (!allMet || loading) return;
+    setLoading(true);
+    try {
+      await signup(email, password);
+      toastRef.current?.show(() =>
+        navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] })
+      );
+    } catch (err: any) {
+      Alert.alert('Erro', err.message ?? 'Falha ao criar conta');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,7 +72,6 @@ const SignupScreen = () => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.navigate('Login')}
@@ -74,7 +87,6 @@ const SignupScreen = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Email */}
           <View style={styles.fieldset}>
             <Text style={styles.legend}>E-mail</Text>
             <TextInput
@@ -89,7 +101,6 @@ const SignupScreen = () => {
             />
           </View>
 
-          {/* Senha */}
           <PasswordField
             label="Senha"
             value={password}
@@ -98,7 +109,6 @@ const SignupScreen = () => {
             onToggle={() => setShowPassword(!showPassword)}
           />
 
-          {/* Strength meter */}
           {password.length > 0 && (
             <PasswordStrengthMeter
               strengthCount={strengthCount}
@@ -106,7 +116,6 @@ const SignupScreen = () => {
             />
           )}
 
-          {/* Confirmar senha */}
           <PasswordField
             label="Confirmar senha"
             value={confirmPassword}
@@ -115,17 +124,17 @@ const SignupScreen = () => {
             onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
           />
 
-          {/* Requisitos da senha */}
           <PasswordRequirements requirements={requirements} />
 
-          {/* Button */}
           <TouchableOpacity
             onPress={handleCreate}
-            disabled={!allMet}
-            style={[styles.primaryButton, !allMet && styles.disabled]}
+            disabled={!allMet || loading}
+            style={[styles.primaryButton, (!allMet || loading) && styles.disabled]}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Criar conta</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Criando...' : 'Criar conta'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -136,13 +145,8 @@ const SignupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -172,17 +176,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: colors.card,
   },
-  legend: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: 2,
-  },
-  input: {
-    fontSize: 16,
-    color: colors.foreground,
-    padding: 0,
-    margin: 0,
-  },
+  legend: { fontSize: 12, color: colors.mutedForeground, marginBottom: 2 },
+  input: { fontSize: 16, color: colors.foreground, padding: 0, margin: 0 },
   primaryButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
@@ -195,14 +190,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginTop: 16,
   },
-  primaryButtonText: {
-    color: colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
 });
 
 export default SignupScreen;

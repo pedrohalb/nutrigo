@@ -7,6 +7,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
@@ -14,16 +15,25 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
+import { authApi } from '../services/api/auth';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const ForgotPasswordScreen = () => {
   const navigation = useNavigation<Nav>();
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSend = () => {
-    if (email.length > 0) {
-      navigation.navigate('ResetPassword');
+  const handleSend = async () => {
+    if (!email) return;
+    setLoading(true);
+    try {
+      await authApi.forgotPassword(email);
+      navigation.navigate('ResetPassword', { email });
+    } catch (err: any) {
+      Alert.alert('Erro', err.message ?? 'Falha ao enviar');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,7 +43,6 @@ const ForgotPasswordScreen = () => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.navigate('Login')}
@@ -62,11 +71,13 @@ const ForgotPasswordScreen = () => {
 
           <TouchableOpacity
             onPress={handleSend}
-            disabled={email.length === 0}
-            style={[styles.primaryButton, email.length === 0 && styles.disabled]}
+            disabled={!email || loading}
+            style={[styles.primaryButton, (!email || loading) && styles.disabled]}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Enviar e-mail de recuperação</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Enviando...' : 'Enviar e-mail de recuperação'}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -75,13 +86,8 @@ const ForgotPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -96,11 +102,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.foreground,
   },
-  form: {
-    paddingHorizontal: 32,
-    paddingTop: 32,
-    gap: 20,
-  },
+  form: { paddingHorizontal: 32, paddingTop: 32, gap: 20 },
   fieldset: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -110,17 +112,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: colors.card,
   },
-  legend: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: 2,
-  },
-  input: {
-    fontSize: 16,
-    color: colors.foreground,
-    padding: 0,
-    margin: 0,
-  },
+  legend: { fontSize: 12, color: colors.mutedForeground, marginBottom: 2 },
+  input: { fontSize: 16, color: colors.foreground, padding: 0, margin: 0 },
   primaryButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
@@ -133,14 +126,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginTop: 16,
   },
-  primaryButtonText: {
-    color: colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
 });
 
 export default ForgotPasswordScreen;

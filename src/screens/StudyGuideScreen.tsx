@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -20,15 +21,17 @@ import {
   ChevronUp,
   ArrowRight,
 } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../../App";
 import AIChat from "../components/AIChat";
 import { colors, radius } from "../theme";
-import type { StudyGuideQuestion } from "../types/studyGuide";
-import { lessonsData } from "../mocks/lessonsData";
+import type { LessonData, StudyGuideQuestion } from "../types/studyGuide";
+import { studyGuideApi } from "../services/api/studyGuide";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "StudyGuide">;
 type Tab = "material" | "revisao" | "ia";
 
 /* ─── Tab Button ─── */
@@ -63,87 +66,47 @@ const TabButton = ({
 );
 
 /* ─── Material Tab ─── */
-const MaterialTab = () => (
-  <View style={styles.tabContent}>
-    <View style={styles.materialCard}>
-      <View style={styles.materialCardHeader}>
-        <Text style={styles.emoji}>🥦</Text>
-        <Text style={styles.materialCardTitle}>O que é nutrição?</Text>
+const MaterialTab = ({ material }: { material: any }) => {
+  if (!material) {
+    return (
+      <View style={[styles.tabContent, { alignItems: "center", paddingTop: 32 }]}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={{ color: colors.mutedForeground, marginTop: 12 }}>
+          Gerando material...
+        </Text>
       </View>
-      <Text style={styles.materialCardText}>
-        Nutrição é a ciência que estuda entre alimentos e saúde, como o corpo
-        ingere, digere, absorve e utiliza os nutrientes para crescer, reapara
-        tecidos e produzir energia.
-      </Text>
-    </View>
+    );
+  }
 
-    <View style={styles.conceptCard}>
-      <Text style={styles.conceptTitle}>Conceito-chave</Text>
-      <Text style={styles.conceptText}>
-        Alimentação equilibrada é diferente de comer pouco. Significa variedade,
-        proporção e regularidade entre os grupos alimentares.
-      </Text>
-    </View>
+  const sections: Array<{ title: string; content: string }> =
+    material?.sections ?? [];
 
-    <View style={styles.materialCard}>
-      <View style={styles.materialCardHeader}>
-        <Text style={styles.emoji}>🥦</Text>
-        <Text style={styles.materialCardTitle}>Macronutrientes</Text>
-      </View>
-      <View style={styles.macroList}>
-        <MacroItem
-          letter="P"
-          bgColor={colors.primary}
-          title="Proteínas"
-          desc="constroem e reparam tecidos. Presentes em carnes, ovos e leguminosas"
-        />
-        <MacroItem
-          letter="C"
-          bgColor={colors.energy}
-          title="Carboidratos"
-          desc="Principal fonte de energia. Presente em arroz, pão e frutas"
-        />
-        <MacroItem
-          letter="G"
-          bgColor={colors.accent}
-          title="Gorduras"
-          desc="Absorção de vitaminas e produção hormonal. Presente em azeite e castanhas"
-        />
-      </View>
+  return (
+    <View style={styles.tabContent}>
+      {sections.map((section, i) => (
+        <View key={i} style={styles.materialCard}>
+          <View style={styles.materialCardHeader}>
+            <Text style={styles.emoji}>📖</Text>
+            <Text style={styles.materialCardTitle}>{section.title}</Text>
+          </View>
+          <Text style={styles.materialCardText}>{section.content}</Text>
+        </View>
+      ))}
     </View>
-  </View>
-);
-
-const MacroItem = ({
-  letter,
-  bgColor,
-  title,
-  desc,
-}: {
-  letter: string;
-  bgColor: string;
-  title: string;
-  desc: string;
-}) => (
-  <View style={styles.macroRow}>
-    <View style={[styles.macroCircle, { backgroundColor: bgColor }]}>
-      <Text style={styles.macroLetter}>{letter}</Text>
-    </View>
-    <Text style={styles.macroText}>
-      <Text style={styles.macroBold}>{title}</Text> - {desc}
-    </Text>
-  </View>
-);
+  );
+};
 
 /* ─── Revision Tab ─── */
 const RevisionTab = ({
+  lessonsData,
   expandedLesson,
   setExpandedLesson,
   openDetail,
 }: {
+  lessonsData: LessonData[];
   expandedLesson: number | null;
   setExpandedLesson: (v: number | null) => void;
-  openDetail: (lesson: (typeof lessonsData)[0], qIndex: number) => void;
+  openDetail: (lesson: LessonData, qIndex: number) => void;
 }) => (
   <View style={styles.tabContent}>
     {lessonsData.map((lesson, li) => {
@@ -284,14 +247,34 @@ const TabBar = ({
 /* ─── Main StudyGuide ─── */
 const StudyGuideScreen = () => {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const { unitId } = route.params;
   const [activeTab, setActiveTab] = useState<Tab>("material");
   const [expandedLesson, setExpandedLesson] = useState<number | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<StudyGuideQuestion | null>(null);
   const [detailIndex, setDetailIndex] = useState(0);
   const [detailTotal, setDetailTotal] = useState(0);
   const [detailQuestions, setDetailQuestions] = useState<StudyGuideQuestion[]>([]);
+  const [studyMaterial, setStudyMaterial] = useState<any>(null);
+  const [lessonsData, setLessonsData] = useState<LessonData[]>([]);
+  const [unitInfo, setUnitInfo] = useState<{ section: number; unit: number; title: string } | null>(null);
 
-  const openDetail = (lesson: (typeof lessonsData)[0], qIndex: number) => {
+  useEffect(() => {
+    studyGuideApi.getStudyMaterial(unitId).then(({ studyMaterial: sm }) => {
+      setStudyMaterial(sm);
+    }).catch(() => {});
+    import("../services/api/units").then(({ unitsApi }) =>
+      unitsApi.getUnit(unitId).then((u) => setUnitInfo({ section: u.section, unit: u.unit, title: u.title })).catch(() => {})
+    );
+  }, [unitId]);
+
+  useEffect(() => {
+    if (activeTab === "revisao") {
+      studyGuideApi.getReview(unitId).then(setLessonsData).catch(() => {});
+    }
+  }, [activeTab, unitId]);
+
+  const openDetail = (lesson: LessonData, qIndex: number) => {
     const qs = lesson.questions.map((q) => ({
       ...q,
       lessonTitle: lesson.title,
@@ -338,17 +321,20 @@ const StudyGuideScreen = () => {
           >
             {/* Section banner */}
             <View style={styles.sectionBanner}>
-              <Text style={styles.sectionBannerTitle}>Seção 1, Unidade 1</Text>
+              <Text style={styles.sectionBannerTitle}>
+                {unitInfo ? `Seção ${unitInfo.section}, Unidade ${unitInfo.unit}` : "—"}
+              </Text>
               <Text style={styles.sectionBannerSubtitle}>
-                Fundamentos da Nutrição
+                {unitInfo?.title ?? ""}
               </Text>
             </View>
 
             <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-            {activeTab === "material" && <MaterialTab />}
+            {activeTab === "material" && <MaterialTab material={studyMaterial} />}
             {activeTab === "revisao" && (
               <RevisionTab
+                lessonsData={lessonsData}
                 expandedLesson={expandedLesson}
                 setExpandedLesson={setExpandedLesson}
                 openDetail={openDetail}
@@ -364,9 +350,11 @@ const StudyGuideScreen = () => {
                 { marginHorizontal: 20, marginBottom: 8 },
               ]}
             >
-              <Text style={styles.sectionBannerTitle}>Seção 1, Unidade 1</Text>
+              <Text style={styles.sectionBannerTitle}>
+                {unitInfo ? `Seção ${unitInfo.section}, Unidade ${unitInfo.unit}` : "—"}
+              </Text>
               <Text style={styles.sectionBannerSubtitle}>
-                Fundamentos da Nutrição
+                {unitInfo?.title ?? ""}
               </Text>
             </View>
 
@@ -377,7 +365,7 @@ const StudyGuideScreen = () => {
             />
 
             <View style={styles.aiChatArea}>
-              <AIChat />
+              <AIChat unitId={unitId} />
             </View>
           </View>
         )}

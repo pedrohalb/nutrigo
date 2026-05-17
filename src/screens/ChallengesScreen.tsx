@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
@@ -13,13 +14,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../App";
 import { colors, radius } from "../theme";
 import BottomNav from "../components/BottomNav";
-import type { Challenge } from "../types/challenge";
-import { dailyChallenge, weeklyChallenges } from "../mocks/challenges";
 import ChallengeCard from "../components/ChallengeCard";
+import { challengesApi, type ChallengeItem } from "../services/api/challenges";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const DailyChallengeCard = ({ c }: { c: Challenge }) => (
+const DailyChallengeCard = ({ c }: { c: ChallengeItem }) => (
   <View style={styles.dailyCard}>
     <View style={styles.dailyHeader}>
       <Text style={styles.dailyEmoji}>{c.emoji}</Text>
@@ -33,7 +33,7 @@ const DailyChallengeCard = ({ c }: { c: Challenge }) => (
       <View
         style={[
           styles.dailyBarFill,
-          { width: `${(c.progress / c.total) * 100}%` },
+          { width: `${Math.min((c.progress / c.total) * 100, 100)}%` },
         ]}
       />
     </View>
@@ -50,11 +50,23 @@ const DailyChallengeCard = ({ c }: { c: Challenge }) => (
 
 const ChallengesScreen = () => {
   const navigation = useNavigation<Nav>();
+  const [daily, setDaily] = useState<ChallengeItem[]>([]);
+  const [weekly, setWeekly] = useState<ChallengeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    challengesApi
+      .getChallenges()
+      .then((data) => {
+        setDaily(data.daily);
+        setWeekly(data.weekly);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.navigate("Profile")}
@@ -66,22 +78,32 @@ const ChallengesScreen = () => {
           <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.sectionLabel}>Desafio diário</Text>
-          <DailyChallengeCard c={dailyChallenge} />
-
-          <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-            Desafios semanais
-          </Text>
-          <View style={styles.challengeList}>
-            {weeklyChallenges.map((c, i) => (
-              <ChallengeCard key={i} challenge={c} />
+        {loading ? (
+          <ActivityIndicator
+            style={{ flex: 1 }}
+            color={colors.primary}
+            size="large"
+          />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.sectionLabel}>Desafio diário</Text>
+            {daily.map((c) => (
+              <DailyChallengeCard key={c.id} c={c} />
             ))}
-          </View>
-        </ScrollView>
+
+            <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
+              Desafios semanais
+            </Text>
+            <View style={styles.challengeList}>
+              {weekly.map((c) => (
+                <ChallengeCard key={c.id} challenge={c} />
+              ))}
+            </View>
+          </ScrollView>
+        )}
 
         <BottomNav />
       </View>
@@ -124,7 +146,6 @@ const styles = StyleSheet.create({
   challengeList: {
     gap: 12,
   },
-  // Daily challenge card
   dailyCard: {
     backgroundColor: colors.primary,
     borderRadius: radius.lg,

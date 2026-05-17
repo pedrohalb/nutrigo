@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile      Profile?
+  units        Unit[]
+  attempts     Attempt[]
+  chatThreads  ChatThread[]
+  challengeProgress UserChallengeProgress[]
+
+  @@map("users")
+}
+
+model Profile {
+  userId         String    @id @map("user_id") @db.Uuid
+  name           String
+  objectives     String[]
+  topics         String[]
+  goal           GoalKind
+  level          Int       @default(1)
+  xp             Int       @default(0)
+  streakDays     Int       @default(0) @map("streak_days")
+  lastActiveDate DateTime? @map("last_active_date") @db.Date
+  lastStudyGuideVisit DateTime? @map("last_study_guide_visit") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Unit {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  section       Int
+  unitNumber    Int         @map("unit_number")
+  title         String
+  status        UnitStatus  @default(skeleton)
+  studyMaterial Json?       @map("study_material")
+  summary       String?
+  generatedAt   DateTime?   @map("generated_at") @db.Timestamptz
+  completedAt   DateTime?   @map("completed_at") @db.Timestamptz
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons       Lesson[]
+  chatThreads   ChatThread[]
+
+  @@unique([userId, section, unitNumber])
+  @@index([userId])
+  @@map("units")
+}
+
+model Lesson {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  unitId      String        @map("unit_id") @db.Uuid
+  orderIndex  Int           @map("order_index")
+  title       String
+  status      LessonStatus  @default(skeleton)
+  generatedAt DateTime?     @map("generated_at") @db.Timestamptz
+  completedAt DateTime?     @map("completed_at") @db.Timestamptz
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  unit        Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  attempts    Attempt[]
+
+  @@unique([unitId, orderIndex])
+  @@index([unitId])
+  @@map("lessons")
+}
+
+model Question {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId    String       @map("lesson_id") @db.Uuid
+  orderIndex  Int          @map("order_index")
+  type        QuestionType
+  payload     Json
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  lesson      Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts    Attempt[]
+
+  @@unique([lessonId, orderIndex])
+  @@index([lessonId])
+  @@map("questions")
+}
+
+model Attempt {
+  userId     String   @map("user_id") @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  lessonId   String   @map("lesson_id") @db.Uuid
+  userAnswer Json     @map("user_answer")
+  isCorrect  Boolean  @map("is_correct")
+  answeredAt DateTime @default(now()) @map("answered_at") @db.Timestamptz
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@index([lessonId])
+  @@map("attempts")
+}
+
+model ChatThread {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  unitId    String   @map("unit_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit      Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@unique([userId, unitId])
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId  String   @map("thread_id") @db.Uuid
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("chat_messages")
+}
+
+model ChallengeTemplate {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind        ChallengeKind
+  emoji       String
+  title       String
+  description String
+  exp         Int
+  rule        ChallengeRule
+  ruleParams  Json            @default("{}") @map("rule_params")
+  active      Boolean         @default(true)
+
+  userProgress UserChallengeProgress[]
+
+  @@map("challenge_templates")
+}
+
+model UserChallengeProgress {
+  userId      String   @map("user_id") @db.Uuid
+  templateId  String   @map("template_id") @db.Uuid
+  periodStart DateTime @map("period_start") @db.Date
+  progress    Int      @default(0)
+  total       Int
+  done        Boolean  @default(false)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template ChallengeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId, periodStart])
+  @@map("user_challenge_progress")
+}
+
+enum GoalKind {
+  casual
+  regular
+  serio
+  intenso
+}
+
+enum UnitStatus {
+  skeleton
+  generating
+  generated
+  completed
+}
+
+enum LessonStatus {
+  skeleton
+  generating
+  generated
+  completed
+}
+
+enum QuestionType {
+  multiple_choice @map("multiple-choice")
+  image_choice    @map("image-choice")
+  fill_blank      @map("fill-blank")
+}
+
+enum ChatRole {
+  user
+  assistant
+}
+
+enum ChallengeKind {
+  daily
+  weekly
+}
+
+enum ChallengeRule {
+  complete_lessons_today
+  complete_lessons_week
+  complete_lessons_perfect_today
+  streak_days
+  complete_unit
+  enter_study_guide
+  complete_first_lesson
+}

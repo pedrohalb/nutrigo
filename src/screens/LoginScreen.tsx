@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -16,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
+import { useAuth } from '../contexts/AuthContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,18 +26,24 @@ const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<Nav>();
+  const { login } = useAuth();
 
-  const handleLogin = () => {
-    navigation.navigate('Onboarding');
-  };
-
-  const handleSignup = () => {
-    navigation.navigate('Signup');
-  };
-
-  const handleForgotPassword = () => {
-    navigation.navigate('ForgotPassword');
+  const handleLogin = async () => {
+    if (!email || !password) return;
+    setLoading(true);
+    try {
+      const { hasProfile } = await login(email, password);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: hasProfile ? 'Home' : 'Onboarding' }],
+      });
+    } catch (err: any) {
+      Alert.alert('Erro', err.message ?? 'Falha ao entrar');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,7 +57,6 @@ const LoginScreen = () => {
           keyboardShouldPersistTaps="handled"
           bounces={false}
         >
-          {/* Green Header */}
           <View style={styles.header}>
             <View style={styles.mascotCircle}>
               <Image
@@ -60,9 +68,7 @@ const LoginScreen = () => {
             <Text style={styles.title}>NutriGo</Text>
           </View>
 
-          {/* Form Section */}
           <View style={styles.form}>
-            {/* E-mail Field */}
             <View style={styles.fieldset}>
               <Text style={styles.legend}>E-mail</Text>
               <TextInput
@@ -77,7 +83,6 @@ const LoginScreen = () => {
               />
             </View>
 
-            {/* Password Field */}
             <View style={styles.fieldset}>
               <Text style={styles.legend}>Senha</Text>
               <View style={styles.passwordRow}>
@@ -102,27 +107,33 @@ const LoginScreen = () => {
               </View>
             </View>
 
-            {/* Buttons */}
             <View style={styles.buttons}>
               <TouchableOpacity
-                style={styles.primaryButton}
+                style={[styles.primaryButton, loading && styles.disabled]}
                 onPress={handleLogin}
                 activeOpacity={0.8}
+                disabled={loading}
               >
-                <Text style={styles.primaryButtonText}>Login</Text>
+                {loading ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Login</Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.accentButton}
-                onPress={handleSignup}
+                onPress={() => navigation.navigate('Signup')}
                 activeOpacity={0.8}
               >
                 <Text style={styles.accentButtonText}>Cadastre-se</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Forgot Password */}
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotBtn}
+            >
               <Text style={styles.forgotText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
           </View>
@@ -133,16 +144,9 @@ const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.accent,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  safe: { flex: 1, backgroundColor: colors.accent },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   header: {
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -163,15 +167,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
   },
-  mascotImage: {
-    width: 96,
-    height: 96,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: '#236532',
-  },
+  mascotImage: { width: 96, height: 96 },
+  title: { fontSize: 30, fontWeight: '700', color: '#236532' },
   form: {
     flex: 1,
     backgroundColor: colors.background,
@@ -188,25 +185,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: colors.card,
   },
-  legend: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: 2,
-  },
-  input: {
-    fontSize: 16,
-    color: colors.foreground,
-    padding: 0,
-    margin: 0,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  buttons: {
-    gap: 12,
-    marginTop: 16,
-  },
+  legend: { fontSize: 12, color: colors.mutedForeground, marginBottom: 2 },
+  input: { fontSize: 16, color: colors.foreground, padding: 0, margin: 0 },
+  passwordRow: { flexDirection: 'row', alignItems: 'center' },
+  buttons: { gap: 12, marginTop: 16 },
   primaryButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
@@ -218,32 +200,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  primaryButtonText: {
-    color: colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   accentButton: {
     backgroundColor: colors.accent,
     paddingVertical: 14,
     borderRadius: radius.full,
     alignItems: 'center',
   },
-  accentButtonText: {
-    color: colors.accentForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  forgotBtn: {
-    alignSelf: 'center',
-    marginTop: 8,
-    padding: 8,
-  },
-  forgotText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  accentButtonText: { color: colors.accentForeground, fontSize: 16, fontWeight: '600' },
+  forgotBtn: { alignSelf: 'center', marginTop: 8, padding: 8 },
+  forgotText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
+  disabled: { opacity: 0.6 },
 });
 
 export default LoginScreen;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,26 +6,28 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { X, CheckCircle, Flag } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../../App";
 import { colors, radius } from "../theme";
 import type {
   MultipleChoiceQuestion,
   ImageChoiceQuestion,
   FillBlankQuestion,
+  Question,
 } from "../types/quiz";
-import { lessonQuestions } from "../mocks/lessonQuestions";
+import { lessonsApi, type UserAnswer, type SubmitResult } from "../services/api/lessons";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, "Lesson">;
 
 const CORRECT_COLOR = "#22c55e";
 const WRONG_COLOR = "#ef4444";
-
-const totalSteps = lessonQuestions.length + 3;
 
 /* ─── Progress Header ─── */
 const ProgressHeader = ({
@@ -226,82 +228,65 @@ const EncouragementScreen = () => (
   </View>
 );
 
-const LessonCompleteScreen = () => (
-  <View style={styles.rewardScreen}>
-    <Text style={styles.completeTitle}>Lição completa!</Text>
-    <Image
-      source={require("../../assets/images/nutrigo-broccoli-celebrate.png")}
-      style={styles.celebrateImage}
-      resizeMode="contain"
-    />
-    <View style={styles.statsRow}>
-      <View style={[styles.statCard, { borderColor: "#FFD901" }]}>
-        <View style={[styles.statCardHeader, { borderBottomWidth: 0 }]}>
-          <Text style={[styles.statCardLabel, { color: "#fff" }]}>
-            Total de EXP
-          </Text>
+const LessonCompleteScreen = ({ xpEarned, correctCount, totalCount }: { xpEarned: number; correctCount: number; totalCount: number }) => {
+  const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+  return (
+    <View style={styles.rewardScreen}>
+      <Text style={styles.completeTitle}>Lição completa!</Text>
+      <Image
+        source={require("../../assets/images/nutrigo-broccoli-celebrate.png")}
+        style={styles.celebrateImage}
+        resizeMode="contain"
+      />
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, { borderColor: "#FFD901" }]}>
+          <View style={[styles.statCardHeader, { borderBottomWidth: 0 }]}>
+            <Text style={[styles.statCardLabel, { color: "#fff" }]}>Total de EXP</Text>
+          </View>
+          <View style={styles.statCardBody}>
+            <Image
+              source={require("../../assets/images/icon-energy.png")}
+              style={styles.statCardIcon}
+              resizeMode="contain"
+            />
+            <Text style={[styles.statCardValue, { color: "#FFD901" }]}>{xpEarned}</Text>
+          </View>
         </View>
-        <View style={styles.statCardBody}>
-          <Image
-            source={require("../../assets/images/icon-energy.png")}
-            style={styles.statCardIcon}
-            resizeMode="contain"
-          />
-          <Text style={[styles.statCardValue, { color: "#FFD901" }]}>100</Text>
-        </View>
-      </View>
-      <View style={[styles.statCard, { borderColor: colors.primary }]}>
-        <View
-          style={[
-            styles.statCardHeader,
-            { backgroundColor: colors.primary, borderBottomWidth: 0 },
-          ]}
-        >
-          <Text style={[styles.statCardLabel, { color: "#fff" }]}>
-            Precisão
-          </Text>
-        </View>
-        <View style={styles.statCardBody}>
-          <CheckCircle size={32} color={colors.primary} />
-          <Text style={[styles.statCardValue, { color: colors.primary }]}>
-            100%
-          </Text>
+        <View style={[styles.statCard, { borderColor: colors.primary }]}>
+          <View style={[styles.statCardHeader, { backgroundColor: colors.primary, borderBottomWidth: 0 }]}>
+            <Text style={[styles.statCardLabel, { color: "#fff" }]}>Precisão</Text>
+          </View>
+          <View style={styles.statCardBody}>
+            <CheckCircle size={32} color={colors.primary} />
+            <Text style={[styles.statCardValue, { color: colors.primary }]}>{accuracy}%</Text>
+          </View>
         </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
-const StreakScreen = () => {
+const StreakScreen = ({ streakDays }: { streakDays: number }) => {
   const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
   return (
     <View style={styles.rewardScreen}>
-      <Text style={styles.streakNumber}>1</Text>
-      <Text style={styles.streakLabel}>dia de ofensiva!</Text>
+      <Text style={styles.streakNumber}>{streakDays}</Text>
+      <Text style={styles.streakLabel}>{streakDays === 1 ? "dia de ofensiva!" : "dias de ofensiva!"}</Text>
       <Image
         source={require("../../assets/images/icon-fire.png")}
         style={styles.streakFireIcon}
         resizeMode="contain"
       />
-
       <View style={styles.daysRow}>
         {days.map((d, i) => (
           <View key={d} style={styles.dayItem}>
             <Text style={styles.dayLabel}>{d}</Text>
-            <View
-              style={[
-                styles.dayCircle,
-                { backgroundColor: i === 0 ? colors.streak : colors.muted },
-              ]}
-            >
-              {i === 0 && (
-                <CheckCircle size={16} color={colors.primaryForeground} />
-              )}
+            <View style={[styles.dayCircle, { backgroundColor: i === 0 ? colors.streak : colors.muted }]}>
+              {i === 0 && <CheckCircle size={16} color={colors.primaryForeground} />}
             </View>
           </View>
         ))}
       </View>
-
       <View style={styles.streakWarning}>
         <Text style={styles.streakWarningText}>
           Sua ofensiva será resetada amanhã caso você não pratique. Cuidado!
@@ -314,15 +299,35 @@ const StreakScreen = () => {
 /* ─── Main Lesson Page ─── */
 const LessonScreen = () => {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const { lessonId } = route.params;
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loadingLesson, setLoadingLesson] = useState(true);
   const [step, setStep] = useState(0);
   const [mcSelected, setMcSelected] = useState<number | null>(null);
   const [imgSelected, setImgSelected] = useState<number | null>(null);
   const [fillSelected, setFillSelected] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  const answersRef = useRef<Array<{ questionId: string; userAnswer: UserAnswer }>>([]);
 
-  const isQuestionStep = step < lessonQuestions.length;
-  const currentQuestion = isQuestionStep ? lessonQuestions[step] : null;
+  useEffect(() => {
+    lessonsApi
+      .getLesson(lessonId)
+      .then((data) => {
+        setQuestions(data.questions);
+        setLoadingLesson(false);
+      })
+      .catch(() => {
+        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+      });
+  }, [lessonId]);
+
+  const totalSteps = questions.length + 3;
+  const isQuestionStep = step < questions.length;
+  const currentQuestion = isQuestionStep ? questions[step] : null;
 
   const isCorrect: boolean | null = (() => {
     if (!answered || !currentQuestion) return null;
@@ -349,10 +354,26 @@ const LessonScreen = () => {
     return hasSelection();
   };
 
-  const handleAction = () => {
+  const recordAnswer = (q: Question, qi: number) => {
+    let userAnswer: UserAnswer;
+    if (q.type === "multiple-choice") userAnswer = { selectedIndex: mcSelected! };
+    else if (q.type === "image-choice") userAnswer = { selectedIndex: imgSelected! };
+    else userAnswer = { selectedChip: fillSelected! };
+
+    answersRef.current[qi] = { questionId: (q as any).id ?? `q-${qi}`, userAnswer };
+  };
+
+  const handleAction = async () => {
     if (isQuestionStep && !answered) {
+      // Record answer before showing result
+      if (currentQuestion) recordAnswer(currentQuestion, step);
       setAnswered(true);
       setShowExplanation(false);
+
+      // Submit after last question
+      if (step === questions.length - 1) {
+        lessonsApi.submit(lessonId, answersRef.current).then(setSubmitResult).catch(() => {});
+      }
       return;
     }
     if (step < totalSteps - 1) {
@@ -363,7 +384,7 @@ const LessonScreen = () => {
       setImgSelected(null);
       setFillSelected(null);
     } else {
-      navigation.navigate("Home");
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     }
   };
 
@@ -403,11 +424,30 @@ const LessonScreen = () => {
       }
     }
 
-    const rewardStep = step - lessonQuestions.length;
+    const rewardStep = step - questions.length;
+    const correctCount = submitResult?.results.filter((r) => r.isCorrect).length ?? 0;
+
     if (rewardStep === 0) return <EncouragementScreen />;
-    if (rewardStep === 1) return <LessonCompleteScreen />;
-    return <StreakScreen />;
+    if (rewardStep === 1)
+      return (
+        <LessonCompleteScreen
+          xpEarned={submitResult?.xpEarned ?? 100}
+          correctCount={correctCount}
+          totalCount={questions.length}
+        />
+      );
+    return <StreakScreen streakDays={submitResult?.streakDays ?? 1} />;
   };
+
+  if (loadingLesson) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const buttonLabel = isQuestionStep && !answered ? "Responder" : "Próximo";
 
@@ -416,20 +456,14 @@ const LessonScreen = () => {
       <ProgressHeader
         step={Math.min(step + 1, totalSteps)}
         total={totalSteps}
-        onClose={() => navigation.navigate("Home")}
+        onClose={() => navigation.reset({ index: 0, routes: [{ name: "Home" }] })}
       />
       <View style={styles.contentArea}>{renderContent()}</View>
 
       <View
         style={[
-          answered &&
-            isQuestionStep &&
-            isCorrect === true &&
-            styles.bottomCorrect,
-          answered &&
-            isQuestionStep &&
-            isCorrect === false &&
-            styles.bottomWrong,
+          answered && isQuestionStep && isCorrect === true && styles.bottomCorrect,
+          answered && isQuestionStep && isCorrect === false && styles.bottomWrong,
         ]}
       >
         {isQuestionStep && answered && currentQuestion && (

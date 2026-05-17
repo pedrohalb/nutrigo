@@ -8,6 +8,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
@@ -16,10 +18,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
 import { OBJECTIVES, TOPICS, GOALS } from '../mocks/onboarding';
+import { meApi, type GoalKind } from '../services/api/me';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const STEPS = ['bem-vindo', 'objetivos', 'aprendizado', 'metas'] as const;
+
+const GOAL_VALUE_MAP: Record<string, GoalKind> = {
+  Casual: 'casual',
+  Regular: 'regular',
+  Sério: 'serio',
+  Intenso: 'intenso',
+};
 
 const OnboardingScreen = () => {
   const navigation = useNavigation<Nav>();
@@ -28,6 +38,7 @@ const OnboardingScreen = () => {
   const [selectedObjectives, setSelectedObjectives] = useState<string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const currentStep = STEPS[step];
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -38,22 +49,32 @@ const OnboardingScreen = () => {
 
   const canProceed = () => {
     switch (currentStep) {
-      case 'bem-vindo':
-        return name.trim().length > 0;
-      case 'objetivos':
-        return selectedObjectives.length >= 1;
-      case 'aprendizado':
-        return selectedTopics.length >= 3;
-      case 'metas':
-        return selectedGoal.length > 0;
+      case 'bem-vindo': return name.trim().length > 0;
+      case 'objetivos': return selectedObjectives.length >= 1;
+      case 'aprendizado': return selectedTopics.length >= 3;
+      case 'metas': return selectedGoal.length > 0;
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < STEPS.length - 1) {
       setStep(step + 1);
-    } else {
-      navigation.navigate('Home');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await meApi.onboarding({
+        name: name.trim(),
+        objectives: selectedObjectives,
+        topics: selectedTopics,
+        goal: GOAL_VALUE_MAP[selectedGoal],
+      });
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch (err: any) {
+      Alert.alert('Erro', err.message ?? 'Falha ao salvar perfil');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,22 +87,12 @@ const OnboardingScreen = () => {
     <TouchableOpacity
       key={label}
       onPress={onPress}
-      style={[
-        styles.optionButton,
-        selected && styles.optionButtonSelected,
-      ]}
+      style={[styles.optionButton, selected && styles.optionButtonSelected]}
       activeOpacity={0.7}
     >
-      <Text style={styles.optionText} numberOfLines={2}>
-        {label}
-      </Text>
+      <Text style={styles.optionText} numberOfLines={2}>{label}</Text>
       {rightContent || (
-        <View
-          style={[
-            styles.checkbox,
-            selected && styles.checkboxSelected,
-          ]}
-        >
+        <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
           {selected && <Check size={14} color={colors.primaryForeground} />}
         </View>
       )}
@@ -94,7 +105,6 @@ const OnboardingScreen = () => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.stepLabel}>{currentStep}</Text>
           <View style={styles.progressBarBg}>
@@ -102,16 +112,13 @@ const OnboardingScreen = () => {
           </View>
         </View>
 
-        {/* Content */}
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           {currentStep === 'bem-vindo' && (
             <View style={styles.stepContent}>
-              <Text style={styles.heading}>
-                Primeiro, como podemos de chamar?
-              </Text>
+              <Text style={styles.heading}>Primeiro, como podemos te chamar?</Text>
               <Text style={styles.subtitle}>Queremos conhecer você melhor!</Text>
               <View style={styles.fieldset}>
                 <Text style={styles.legend}>Nome</Text>
@@ -128,12 +135,8 @@ const OnboardingScreen = () => {
 
           {currentStep === 'objetivos' && (
             <View style={styles.stepContent}>
-              <Text style={styles.heading}>
-                Vamos começar com alguns objetivos.
-              </Text>
-              <Text style={styles.subtitle}>
-                Selecione 3 objetivos do seu interesse.
-              </Text>
+              <Text style={styles.heading}>Vamos começar com alguns objetivos.</Text>
+              <Text style={styles.subtitle}>Selecione 3 objetivos do seu interesse.</Text>
               <View style={styles.optionsList}>
                 {OBJECTIVES.map((obj) =>
                   renderCheckableItem(
@@ -149,9 +152,7 @@ const OnboardingScreen = () => {
           {currentStep === 'aprendizado' && (
             <View style={styles.stepContent}>
               <Text style={styles.heading}>Eu gostaria de aprender...</Text>
-              <Text style={styles.subtitle}>
-                Selecione 3 assuntos do seu interesse.
-              </Text>
+              <Text style={styles.subtitle}>Selecione 3 assuntos do seu interesse.</Text>
               <View style={styles.optionsList}>
                 {TOPICS.map((topic) =>
                   renderCheckableItem(
@@ -167,9 +168,7 @@ const OnboardingScreen = () => {
           {currentStep === 'metas' && (
             <View style={styles.stepContent}>
               <Text style={styles.heading}>Escolha sua meta diária.</Text>
-              <Text style={styles.subtitle}>
-                Quanto tempo por dia irá se dedicar?
-              </Text>
+              <Text style={styles.subtitle}>Quanto tempo por dia irá se dedicar?</Text>
               <View style={styles.optionsList}>
                 {GOALS.map((goal) => (
                   <TouchableOpacity
@@ -190,15 +189,18 @@ const OnboardingScreen = () => {
           )}
         </ScrollView>
 
-        {/* Bottom button */}
         <View style={styles.bottomButton}>
           <TouchableOpacity
             onPress={handleNext}
-            disabled={!canProceed()}
-            style={[styles.primaryButton, !canProceed() && styles.disabled]}
+            disabled={!canProceed() || loading}
+            style={[styles.primaryButton, (!canProceed() || loading) && styles.disabled]}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Próximo</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Próximo</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -207,18 +209,9 @@ const OnboardingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
+  header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 8 },
   stepLabel: {
     textAlign: 'center',
     fontSize: 14,
@@ -231,31 +224,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
     overflow: 'hidden',
   },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-  },
+  progressBarFill: { height: '100%', borderRadius: 6, backgroundColor: colors.primary },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 32,
     paddingTop: 24,
     paddingBottom: 16,
   },
-  stepContent: {
-    flex: 1,
-  },
-  heading: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.foreground,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.mutedForeground,
-    marginBottom: 24,
-  },
+  stepContent: { flex: 1 },
+  heading: { fontSize: 24, fontWeight: '700', color: colors.foreground, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: colors.mutedForeground, marginBottom: 24 },
   fieldset: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -265,20 +243,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: colors.card,
   },
-  legend: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: 2,
-  },
-  input: {
-    fontSize: 16,
-    color: colors.foreground,
-    padding: 0,
-    margin: 0,
-  },
-  optionsList: {
-    gap: 12,
-  },
+  legend: { fontSize: 12, color: colors.mutedForeground, marginBottom: 2 },
+  input: { fontSize: 16, color: colors.foreground, padding: 0, margin: 0 },
+  optionsList: { gap: 12 },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,18 +277,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  goalDetail: {
-    fontSize: 14,
-    color: colors.mutedForeground,
-  },
-  bottomButton: {
-    paddingHorizontal: 32,
-    paddingBottom: 32,
-  },
+  checkboxSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
+  goalDetail: { fontSize: 14, color: colors.mutedForeground },
+  bottomButton: { paddingHorizontal: 32, paddingBottom: 32 },
   primaryButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
@@ -333,14 +291,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  primaryButtonText: {
-    color: colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
 });
 
 export default OnboardingScreen;

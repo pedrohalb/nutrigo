@@ -8,7 +8,7 @@ export const lessonsData: LessonData[] = [
     progress: 100,
     questions: [
       {
-        id: 1,
+        id: "1",
         text: 'O que caracteriza uma alimentação equi...',
         correct: true,
         fullQuestion: 'O que caracteriza uma alimentação equilibrada?',
@@ -17,7 +17,7 @@ export const lessonsData: LessonData[] = [
           'Uma alimentação equilibrada é aquela que oferece ao corpo todos os nutrientes necessários para funcionar bem. Isso significa variar os alimentos e incluir diferentes grupos alimentares — como frutas, verduras, legumes, proteínas, cereais e gorduras saudáveis — nas quantidades adequadas.',
       },
       {
-        id: 2,
+        id: "2",
         text: 'Qual alimento é considerado uma opção ...',
         correct: true,
         fullQuestion: 'Qual alimento é considerado uma opção saudável?',
@@ -26,7 +26,7 @@ export const lessonsData: LessonData[] = [
           'Frutas e verduras são fontes importantes de vitaminas, minerais e fibras.',
       },
       {
-        id: 3,
+        id: "3",
         text: 'Qual é a principal função das fibras na ...',
         correct: true,
         fullQuestion: 'Qual é a principal função das fibras na alimentação?',
@@ -35,7 +35,7 @@ export const lessonsData: LessonData[] = [
           'As fibras ajudam no funcionamento do intestino, fortalecem o sistema imunológico e contribuem para a saúde em geral.',
       },
       {
-        id: 4,
+        id: "4",
         text: 'Uma alimentação saudável deve incluir ...',
         correct: false,
         fullQuestion:
@@ -45,7 +45,7 @@ export const lessonsData: LessonData[] = [
           'Uma alimentação saudável deve priorizar alimentos naturais e nutritivos. As frutas são fontes importantes de vitaminas, minerais e fibras.',
       },
       {
-        id: 5,
+        id: "5",
         text: 'Por que o consumo excessivo de açúcar ...',
         correct: true,
         fullQuestion: 'Por que o consumo excessivo de açúcar é prejudicial?',
@@ -61,7 +61,7 @@ export const lessonsData: LessonData[] = [
     progress: 100,
     questions: [
       {
-        id: 1,
+        id: "1",
         text: 'O que caracteriza uma alimentação equi...',
         correct: true,
         fullQuestion: 'O que caracteriza uma alimentação equilibrada?',
@@ -70,7 +70,7 @@ export const lessonsData: LessonData[] = [
           'Uma alimentação equilibrada é aquela que oferece ao corpo todos os nutrientes necessários.',
       },
       {
-        id: 2,
+        id: "2",
         text: 'Qual alimento é considerado uma opção ...',
         correct: true,
         fullQuestion: 'Qual alimento é considerado uma opção saudável?',
@@ -79,7 +79,7 @@ export const lessonsData: LessonData[] = [
           'Frutas e verduras são fontes importantes de vitaminas e minerais.',
       },
       {
-        id: 3,
+        id: "3",
         text: 'Qual é a principal função das fibras na ...',
         correct: true,
         fullQuestion: 'Qual é a principal função das fibras na alimentação?',
@@ -87,7 +87,7 @@ export const lessonsData: LessonData[] = [
         explanation: 'As fibras são essenciais para o bom funcionamento digestivo.',
       },
       {
-        id: 4,
+        id: "4",
         text: 'Uma alimentação saudável deve incluir ...',
         correct: false,
         fullQuestion:
@@ -97,7 +97,7 @@ export const lessonsData: LessonData[] = [
           'Uma alimentação saudável deve priorizar alimentos naturais e nutritivos.',
       },
       {
-        id: 5,
+        id: "5",
         text: 'Por que o consumo excessivo de açúcar ...',
         correct: true,
         fullQuestion: 'Por que o consumo excessivo de açúcar é prejudicial?',
@@ -105,7 +105,7 @@ export const lessonsData: LessonData[] = [
         explanation: 'O açúcar em excesso prejudica a saúde de várias formas.',
       },
       {
-        id: 6,
+        id: "6",
         text: 'Qual a importância das proteínas para ...',
         correct: true,
         fullQuestion: 'Qual a importância das proteínas para o organismo?',

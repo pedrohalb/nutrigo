@@ -7,27 +7,34 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import PasswordField from '../components/PasswordField';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
 import PasswordRequirements from '../components/PasswordRequirements';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
 import Toast, { type ToastHandle } from '../components/Toast';
 import { STRENGTH } from '../constants/passwordStrength';
+import { authApi } from '../services/api/auth';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'ResetPassword'>;
 
 const ResetPasswordScreen = () => {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const { email } = route.params;
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const toastRef = useRef<ToastHandle>(null);
 
   const requirements = [
@@ -42,9 +49,19 @@ const ResetPasswordScreen = () => {
 
   const allMet = requirements.every((r) => r.met) && password === confirmPassword;
 
-  const handleReset = () => {
-    if (!allMet) return;
-    toastRef.current?.show(() => navigation.navigate('Login'));
+  const handleReset = async () => {
+    if (!allMet || loading) return;
+    setLoading(true);
+    try {
+      await authApi.resetPassword(email, password);
+      toastRef.current?.show(() =>
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] })
+      );
+    } catch (err: any) {
+      Alert.alert('Erro', err.message ?? 'Falha ao redefinir senha');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -53,7 +70,6 @@ const ResetPasswordScreen = () => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.navigate('ForgotPassword')}
@@ -69,7 +85,6 @@ const ResetPasswordScreen = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Nova senha */}
           <PasswordField
             label="Nova senha"
             value={password}
@@ -78,7 +93,6 @@ const ResetPasswordScreen = () => {
             onToggle={() => setShowPassword(!showPassword)}
           />
 
-          {/* Strength meter */}
           {password.length > 0 && (
             <PasswordStrengthMeter
               strengthCount={strengthCount}
@@ -86,7 +100,6 @@ const ResetPasswordScreen = () => {
             />
           )}
 
-          {/* Confirmar senha */}
           <PasswordField
             label="Confirmar senha"
             value={confirmPassword}
@@ -95,17 +108,17 @@ const ResetPasswordScreen = () => {
             onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
           />
 
-          {/* Requisitos da senha */}
           <PasswordRequirements requirements={requirements} />
 
-          {/* Button */}
           <TouchableOpacity
             onPress={handleReset}
-            disabled={!allMet}
-            style={[styles.primaryButton, !allMet && styles.disabled]}
+            disabled={!allMet || loading}
+            style={[styles.primaryButton, (!allMet || loading) && styles.disabled]}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Redefinir</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Redefinindo...' : 'Redefinir'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -116,13 +129,8 @@ const ResetPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -155,14 +163,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginTop: 16,
   },
-  primaryButtonText: {
-    color: colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
 });
 
 export default ResetPasswordScreen;

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,44 +6,59 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { colors } from '../../styles/colors';
 import type { Message } from '../../types/chat';
-import { mockResponses } from '../../mocks/aiResponses';
 import { styles } from './styles';
+import { chatApi } from '../../services/api/chat';
 
-const AIChat = () => {
+interface AIChatProps {
+  unitId: string;
+}
+
+const AIChat = ({ unitId }: AIChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  const send = () => {
+  useEffect(() => {
+    chatApi.getMessages(unitId).then(({ messages: msgs }) => {
+      setMessages(msgs);
+    }).catch(() => {});
+  }, [unitId]);
+
+  const send = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || sending) return;
 
-    const userMsg: Message = { id: Date.now(), role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    const tempUserMsg: Message = { id: Date.now(), role: 'user', content: text };
+    setMessages((prev) => [...prev, tempUserMsg]);
     setInput('');
+    setSending(true);
 
-    setTimeout(() => {
-      const key = Object.keys(mockResponses).find(
-        (k) => k !== 'default' && text.toLowerCase().includes(k),
-      );
-      const reply = key ? mockResponses[key] : mockResponses.default;
+    try {
+      const { userMessage, assistantMessage } = await chatApi.sendMessage(unitId, text);
       setMessages((prev) => [
-        ...prev,
-        { id: Date.now(), role: 'assistant', content: reply },
+        ...prev.filter((m) => m.id !== tempUserMsg.id),
+        userMessage,
+        assistantMessage,
       ]);
-    }, 800);
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
+    } finally {
+      setSending(false);
+    }
   };
 
-  if (messages.length === 0) {
+  if (messages.length === 0 && !sending) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyCenterContent}>
           <Text style={styles.emptyTitle}>
-            Olá Pedro! Como posso te ajudar hoje?
+            Como posso te ajudar hoje?
           </Text>
           <View style={styles.mascotCircle}>
             <Image
@@ -54,7 +69,7 @@ const AIChat = () => {
           </View>
         </View>
         <View style={styles.inputContainer}>
-          <ChatInput input={input} setInput={setInput} onSend={send} />
+          <ChatInput input={input} setInput={setInput} onSend={send} sending={sending} />
         </View>
       </View>
     );
@@ -94,8 +109,17 @@ const AIChat = () => {
             </View>
           </View>
         )}
+        ListFooterComponent={
+          sending ? (
+            <View style={[styles.messageBubbleRow, styles.assistantRow]}>
+              <View style={[styles.messageBubble, styles.assistantBubble]}>
+                <ActivityIndicator size="small" color={colors.mutedForeground} />
+              </View>
+            </View>
+          ) : null
+        }
       />
-      <ChatInput input={input} setInput={setInput} onSend={send} />
+      <ChatInput input={input} setInput={setInput} onSend={send} sending={sending} />
     </View>
   );
 };
@@ -104,10 +128,12 @@ const ChatInput = ({
   input,
   setInput,
   onSend,
+  sending,
 }: {
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
+  sending: boolean;
 }) => (
   <View style={styles.inputRow}>
     <TextInput
@@ -118,8 +144,14 @@ const ChatInput = ({
       placeholder="Pergunte algo ..."
       placeholderTextColor={colors.mutedForeground}
       style={styles.textInput}
+      editable={!sending}
     />
-    <TouchableOpacity onPress={onSend} style={styles.sendButton} activeOpacity={0.7}>
+    <TouchableOpacity
+      onPress={onSend}
+      style={[styles.sendButton, sending && { opacity: 0.5 }]}
+      activeOpacity={0.7}
+      disabled={sending}
+    >
       <Send size={18} color={colors.primaryForeground} />
     </TouchableOpacity>
   </View>

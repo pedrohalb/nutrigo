@@ -1,5 +1,5 @@
 export interface StudyGuideQuestionEntry {
-  id: number;
+  id: string;
   text: string;
   correct: boolean;
   fullQuestion: string;
