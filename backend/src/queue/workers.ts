@@ -9,23 +9,39 @@ function buildProfile(p: { name: string; objectives: string[]; topics: string[];
   return { name: p.name, objectives: p.objectives, topics: p.topics, goal: p.goal };
 }
 
+// A IA retorna "multiple-choice" mas o Prisma enum é "multiple_choice"
+function toQuestionType(aiType: string) {
+  const map: Record<string, 'multiple_choice' | 'image_choice' | 'fill_blank'> = {
+    'multiple-choice': 'multiple_choice',
+    'image-choice':    'image_choice',
+    'fill-blank':      'fill_blank',
+  };
+  return map[aiType] ?? 'multiple_choice';
+}
+
 export function startWorkers() {
+  // ── Worker: generate-unit ──────────────────────────────────────────────
   const unitWorker = new Worker<GenerateUnitJobData>(
     'generate-unit',
     async (job) => {
       const { unitId, userId } = job.data;
+      console.log(`[generate-unit] Iniciando job=${job.id} unitId=${unitId}`);
 
       await prisma.unit.update({ where: { id: unitId }, data: { status: 'generating' } });
+      console.log(`[generate-unit] Status → generating`);
 
       const profile = await prisma.profile.findUniqueOrThrow({ where: { userId } });
       const unit = await prisma.unit.findUniqueOrThrow({ where: { id: unitId } });
+      console.log(`[generate-unit] Gerando unidade "${unit.title}" (seção ${unit.section}, nº ${unit.unitNumber})`);
 
+      const t0 = Date.now();
       const result = await aiService.generateFullUnit(
         buildProfile(profile),
         unit.title,
         unit.section,
         unit.unitNumber
       );
+      console.log(`[generate-unit] AI respondeu em ${Date.now() - t0}ms — ${result.lessons.length} lições, studyMaterial sections: ${result.studyMaterial.sections.length}`);
 
       await prisma.$transaction(async (tx) => {
         await tx.unit.update({
@@ -36,23 +52,26 @@ export function startWorkers() {
             generatedAt: new Date(),
           },
         });
+        console.log(`[generate-unit] Unidade atualizada no banco`);
 
         for (const lesson of result.lessons) {
+          const isFirst = lesson.orderIndex === 0;
           const createdLesson = await tx.lesson.create({
             data: {
               unitId,
               orderIndex: lesson.orderIndex,
               title: lesson.title,
-              status: lesson.orderIndex === 0 ? 'generated' : 'skeleton',
+              status: isFirst ? 'generated' : 'skeleton',
             },
           });
+          console.log(`[generate-unit] Lição ${lesson.orderIndex} criada: "${lesson.title}" (${isFirst ? 'generated' : 'skeleton'}) — ${lesson.questions.length} questões`);
 
           for (let i = 0; i < lesson.questions.length; i++) {
             await tx.question.create({
               data: {
                 lessonId: createdLesson.id,
                 orderIndex: i,
-                type: lesson.questions[i].type as any,
+                type: toQuestionType(lesson.questions[i].type),
                 payload: lesson.questions[i] as any,
               },
             });
@@ -60,17 +79,20 @@ export function startWorkers() {
         }
       });
 
-      console.log(`Unit ${unitId} generated successfully`);
+      console.log(`[generate-unit] ✓ Unidade ${unitId} ("${unit.title}") concluída`);
     },
     { connection: redisConnection }
   );
 
+  // ── Worker: generate-lesson ────────────────────────────────────────────
   const lessonWorker = new Worker<GenerateLessonJobData>(
     'generate-lesson',
     async (job) => {
       const { lessonId, unitId, userId, orderIndex } = job.data;
+      console.log(`[generate-lesson] Iniciando job=${job.id} lessonId=${lessonId} orderIndex=${orderIndex}`);
 
       await prisma.lesson.update({ where: { id: lessonId }, data: { status: 'generating' } });
+      console.log(`[generate-lesson] Status → generating`);
 
       const profile = await prisma.profile.findUniqueOrThrow({ where: { userId } });
       const unit = await prisma.unit.findUniqueOrThrow({ where: { id: unitId } });
@@ -79,13 +101,16 @@ export function startWorkers() {
         orderBy: { orderIndex: 'asc' },
         select: { title: true },
       });
+      console.log(`[generate-lesson] Gerando lição ${orderIndex} da unidade "${unit.title}" | lições anteriores: [${previousLessons.map(l => l.title).join(', ')}]`);
 
+      const t0 = Date.now();
       const result = await aiService.generateLesson(
         buildProfile(profile),
         unit.title,
         previousLessons.map((l) => l.title),
         orderIndex
       );
+      console.log(`[generate-lesson] AI respondeu em ${Date.now() - t0}ms — "${result.title}" com ${result.questions.length} questões`);
 
       await prisma.$transaction(async (tx) => {
         await tx.lesson.update({
@@ -98,39 +123,44 @@ export function startWorkers() {
             data: {
               lessonId,
               orderIndex: i,
-              type: result.questions[i].type as any,
+              type: toQuestionType(result.questions[i].type),
               payload: result.questions[i] as any,
             },
           });
         }
       });
 
-      console.log(`Lesson ${lessonId} generated successfully`);
+      console.log(`[generate-lesson] ✓ Lição ${lessonId} ("${result.title}") concluída`);
     },
     { connection: redisConnection }
   );
 
+  // ── Worker: generate-summary ───────────────────────────────────────────
   const summaryWorker = new Worker<GenerateSummaryJobData>(
     'generate-summary',
     async (job) => {
       const { unitId, userId } = job.data;
+      console.log(`[generate-summary] Iniciando job=${job.id} unitId=${unitId}`);
 
       const unit = await prisma.unit.findUniqueOrThrow({
         where: { id: unitId },
         include: { lessons: { orderBy: { orderIndex: 'asc' } } },
       });
+      console.log(`[generate-summary] Gerando resumo de "${unit.title}" — ${unit.lessons.length} lições`);
 
+      const t0 = Date.now();
       const result = await aiService.generateUnitSummary(
         unit.title,
         unit.lessons.map((l) => l.title)
       );
+      console.log(`[generate-summary] AI respondeu em ${Date.now() - t0}ms`);
 
       await prisma.unit.update({
         where: { id: unitId },
         data: { summary: result.summary, status: 'completed', completedAt: new Date() },
       });
+      console.log(`[generate-summary] Unidade "${unit.title}" marcada como completed`);
 
-      // Enqueue skeleton generation for next unit
       const nextUnit = await prisma.unit.findFirst({
         where: {
           userId,
@@ -144,23 +174,32 @@ export function startWorkers() {
       });
 
       if (nextUnit) {
+        console.log(`[generate-summary] Enfileirando próxima unidade: "${nextUnit.title}" (${nextUnit.id})`);
         await jobs.enqueueGenerateUnit({ unitId: nextUnit.id, userId });
+      } else {
+        console.log(`[generate-summary] Nenhuma próxima unidade skeleton encontrada`);
       }
 
-      console.log(`Summary for unit ${unitId} generated`);
+      console.log(`[generate-summary] ✓ Resumo da unidade ${unitId} concluído`);
     },
     { connection: redisConnection }
   );
 
+  // ── Error handlers ─────────────────────────────────────────────────────
   unitWorker.on('failed', (job, err) =>
-    console.error(`generate-unit job ${job?.id} failed:`, err.message)
+    console.error(`[generate-unit] ✗ job=${job?.id} FALHOU:`, err.message, err.stack)
   );
   lessonWorker.on('failed', (job, err) =>
-    console.error(`generate-lesson job ${job?.id} failed:`, err.message)
+    console.error(`[generate-lesson] ✗ job=${job?.id} FALHOU:`, err.message, err.stack)
   );
   summaryWorker.on('failed', (job, err) =>
-    console.error(`generate-summary job ${job?.id} failed:`, err.message)
+    console.error(`[generate-summary] ✗ job=${job?.id} FALHOU:`, err.message, err.stack)
   );
 
+  unitWorker.on('active', (job) => console.log(`[generate-unit] Job ${job.id} ativo`));
+  lessonWorker.on('active', (job) => console.log(`[generate-lesson] Job ${job.id} ativo`));
+  summaryWorker.on('active', (job) => console.log(`[generate-summary] Job ${job.id} ativo`));
+
+  console.log('[workers] Workers iniciados: generate-unit, generate-lesson, generate-summary');
   return { unitWorker, lessonWorker, summaryWorker };
 }

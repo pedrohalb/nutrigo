@@ -22,9 +22,15 @@ async function callWithRetry<T>(
   schema: ZodSchema<T>,
   systemPrompt: string,
   userPrompt: string,
-  model: string
+  model: string,
+  label = 'AI',
+  maxTokens = 4096
 ): Promise<T> {
   async function attempt(previousError?: string): Promise<T> {
+    if (previousError) {
+      console.warn(`[${label}] Tentando novamente após erro de validação:`, previousError.slice(0, 200));
+    }
+
     const messages: Anthropic.MessageParam[] = previousError
       ? [
           { role: 'user', content: userPrompt },
@@ -36,9 +42,12 @@ async function callWithRetry<T>(
         ]
       : [{ role: 'user', content: userPrompt }];
 
+    const t0 = Date.now();
+    console.log(`[${label}] Chamando ${model} — prompt ${userPrompt.length} chars`);
+
     const response = await anthropic.messages.create({
       model,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       system: [
         {
           type: 'text',
@@ -48,22 +57,38 @@ async function callWithRetry<T>(
       ],
       messages,
     });
+    console.log(`[${label}] Resposta recebida em ${Date.now() - t0}ms — stop_reason=${response.stop_reason} tokens_in=${response.usage.input_tokens} tokens_out=${response.usage.output_tokens}`);
 
     const text = response.content
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in response');
+    console.log(`[${label}] Texto bruto (primeiros 300 chars): ${text.slice(0, 300)}`);
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    return schema.parse(parsed);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error(`[${label}] Nenhum JSON encontrado na resposta`);
+      throw new Error('No JSON found in response');
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.error(`[${label}] JSON inválido:`, e);
+      throw e;
+    }
+
+    const result = schema.parse(parsed);
+    console.log(`[${label}] Schema validado com sucesso`);
+    return result;
   }
 
   try {
     return await attempt();
   } catch (err) {
+    console.warn(`[${label}] Primeira tentativa falhou, retentando...`);
     return await attempt(String(err));
   }
 }
@@ -74,7 +99,8 @@ export const aiService = {
       unitSkeletonSchema,
       buildSkeletonSystemPrompt(profile),
       buildSkeletonUserPrompt(),
-      'claude-sonnet-4-6'
+      'claude-sonnet-4-6',
+      'generateUnitSkeletons'
     );
   },
 
@@ -88,7 +114,9 @@ export const aiService = {
       unitWithLessonOneSchema,
       buildFullUnitSystemPrompt(profile),
       buildFullUnitUserPrompt(unitTitle, section, unitNumber),
-      'claude-sonnet-4-6'
+      'claude-sonnet-4-6',
+      `generateFullUnit(${unitTitle})`,
+      8192
     );
   },
 
@@ -102,7 +130,9 @@ export const aiService = {
       lessonGenerationSchema,
       buildFullUnitSystemPrompt(profile),
       buildLessonUserPrompt(unitTitle, previousLessonsTitles, orderIndex),
-      'claude-sonnet-4-6'
+      'claude-sonnet-4-6',
+      `generateLesson(${unitTitle}[${orderIndex}])`,
+      8192
     );
   },
 
@@ -111,7 +141,8 @@ export const aiService = {
       unitSummarySchema,
       buildSummarySystemPrompt(),
       buildSummaryUserPrompt(unitTitle, lessonTitles),
-      'claude-haiku-4-5-20251001'
+      'claude-haiku-4-5-20251001',
+      `generateUnitSummary(${unitTitle})`
     );
   },
 

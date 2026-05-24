@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../../App';
 import { colors, radius } from '../theme';
 import { OBJECTIVES, TOPICS, GOALS } from '../mocks/onboarding';
 import { meApi, type GoalKind } from '../services/api/me';
+import { unitsApi } from '../services/api/units';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,6 +40,23 @@ const OnboardingScreen = () => {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState('');
   const [loading, setLoading] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!building) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const { sections } = await unitsApi.getUnits();
+        const ready = sections.some((s) => s.units.some((u) => u.status === 'generated'));
+        if (ready) {
+          clearInterval(pollRef.current!);
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        }
+      } catch { /* continua polling */ }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [building]);
 
   const currentStep = STEPS[step];
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -70,7 +88,7 @@ const OnboardingScreen = () => {
         topics: selectedTopics,
         goal: GOAL_VALUE_MAP[selectedGoal],
       });
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      setBuilding(true);
     } catch (err: any) {
       Alert.alert('Erro', err.message ?? 'Falha ao salvar perfil');
     } finally {
@@ -98,6 +116,21 @@ const OnboardingScreen = () => {
       )}
     </TouchableOpacity>
   );
+
+  if (building) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.buildingContainer}>
+          <Text style={styles.buildingEmoji}>🌱</Text>
+          <Text style={styles.buildingTitle}>Construindo seu plano personalizado</Text>
+          <Text style={styles.buildingSubtitle}>
+            Estamos preparando seu conteúdo de nutrição.{'\n'}Isso pode levar alguns instantes...
+          </Text>
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 32 }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -293,6 +326,26 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   disabled: { opacity: 0.5 },
+  buildingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  buildingEmoji: { fontSize: 64, marginBottom: 24 },
+  buildingTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.foreground,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  buildingSubtitle: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 });
 
 export default OnboardingScreen;
