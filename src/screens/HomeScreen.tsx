@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,12 +18,20 @@ import {
   Star,
   BookOpen,
   Trophy,
-  GraduationCap,
+  Flame,
+  Zap,
+  Target,
+  Medal,
+  Brain,
+  Heart,
+  Leaf,
+  Sun,
+  Shield,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../App";
-import Svg, { Path, Circle } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import BottomNav from "../components/BottomNav";
 import { colors, radius } from "../theme";
 import type { LessonNode, MascotImage, Unit } from "../types/lesson";
@@ -55,19 +63,13 @@ const STATUS_COLORS = {
   },
 } as const;
 
-// Progress ring
-const RING_RADIUS = 46;
-const RING_STROKE = 5;
-const RING_CIRC = 2 * Math.PI * RING_RADIUS;
-const RING_SIZE = (RING_RADIUS + RING_STROKE) * 2;
-const CURRENT_PROGRESS = 0.7;
-
 // Approximate label container height (bubble ~33 + arrow ~8 + marginBottom ~10)
 const LABEL_H = 51;
 
 // ── Sticky section header ──────────────────────────────────────────────────
 const UnitHeader = ({ unit }: { unit: Unit }) => {
   const navigation = useNavigation<Nav>();
+  const isLocked = unit.status === 'skeleton' || unit.status === 'generating';
   return (
     <View style={styles.sectionHeaderWrap}>
       <View style={styles.unitHeader}>
@@ -77,13 +79,19 @@ const UnitHeader = ({ unit }: { unit: Unit }) => {
           </Text>
           <Text style={styles.unitHeaderTitle}>{unit.title}</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("StudyGuide", { unitId: unit.id })}
-          style={styles.unitHeaderBtn}
-          activeOpacity={0.7}
-        >
-          <BookOpen size={20} color={colors.primaryForeground} />
-        </TouchableOpacity>
+        {isLocked ? (
+          <View style={[styles.unitHeaderBtn, { backgroundColor: colors.muted }]}>
+            <Lock size={18} color={colors.mutedForeground} />
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => navigation.navigate("StudyGuide", { unitId: unit.id })}
+            style={styles.unitHeaderBtn}
+            activeOpacity={0.7}
+          >
+            <BookOpen size={20} color={colors.primaryForeground} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -182,16 +190,17 @@ const NodeIcon = ({
     }).start();
 
   const iconEl: Record<LessonNode["type"], React.ReactElement> = {
-    star: (
-      <Star
-        size={28}
-        color={palette.icon}
-        fill={isActive ? palette.icon : "transparent"}
-      />
-    ),
-    lock: <Lock size={22} color={palette.icon} />,
-    chest: <Trophy size={24} color={palette.icon} />,
-    book: <GraduationCap size={24} color={palette.icon} />,
+    star:   <Star   size={28} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    flame:  <Flame  size={26} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    zap:    <Zap    size={26} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    target: <Target size={26} color={palette.icon} />,
+    medal:  <Medal  size={26} color={palette.icon} />,
+    brain:  <Brain  size={26} color={palette.icon} />,
+    heart:  <Heart  size={26} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    leaf:   <Leaf   size={26} color={palette.icon} />,
+    sun:    <Sun    size={26} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    shield: <Shield size={26} color={palette.icon} fill={isActive ? palette.icon : "transparent"} />,
+    chest:  <Trophy size={24} color={palette.icon} />,
   };
 
   const inner = (
@@ -227,40 +236,6 @@ const NodeIcon = ({
               transform: [{ scale: pulseScale }],
             }}
           />
-        )}
-
-        {/* Progress ring (current node only) */}
-        {isCurrent && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: -(RING_SIZE / 2 - size / 2),
-              left: -(RING_SIZE / 2 - size / 2),
-            }}
-          >
-            <Svg width={RING_SIZE} height={RING_SIZE}>
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_RADIUS}
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth={RING_STROKE}
-                fill="none"
-              />
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_RADIUS}
-                stroke="#FFD700"
-                strokeWidth={RING_STROKE}
-                fill="none"
-                strokeDasharray={`${RING_CIRC * CURRENT_PROGRESS} ${RING_CIRC}`}
-                strokeLinecap="round"
-                transform={`rotate(-90, ${RING_SIZE / 2}, ${RING_SIZE / 2})`}
-              />
-            </Svg>
-          </View>
         )}
 
         {/* 3D shadow — stays fixed */}
@@ -401,8 +376,22 @@ interface NodeCenter {
   y: number;
 }
 
+const LockedUnitCard = () => (
+  <View style={styles.lockedUnitCard}>
+    <Lock size={36} color={colors.mutedForeground} />
+    <Text style={styles.lockedUnitMsg}>
+      Termine a unidade anterior para desbloquea
+    </Text>
+  </View>
+);
+
 const UnitNodePath = ({ unit }: { unit: Unit }) => {
   const navigation = useNavigation<Nav>();
+
+  if (unit.status === 'skeleton' || unit.status === 'generating') {
+    return <LockedUnitCard />;
+  }
+
   const [nodeCenters, setNodeCenters] = useState<NodeCenter[]>([]);
   const [pathHeight, setPathHeight] = useState(0);
   const layoutsRef = useRef<Array<{ y: number } | null>>(
@@ -491,10 +480,8 @@ const UnitNodePath = ({ unit }: { unit: Unit }) => {
               <NodeIcon
                 node={node}
                 onPress={
-                  node.status !== "locked" && node.type === "star"
-                    ? () => navigation.navigate("Lesson", { lessonId: node.id })
-                    : node.status !== "locked" && node.type !== "star"
-                    ? () => {}
+                  node.status !== "locked" && node.lessonId
+                    ? () => navigation.navigate("Lesson", { lessonId: node.lessonId })
                     : undefined
                 }
               />
@@ -559,6 +546,23 @@ const HomeScreen = () => {
     };
   }, [loadData]);
 
+  // Show the active section in full, plus a single locked teaser of the next section.
+  const visibleSections = useMemo(() => {
+    if (sections.length === 0) return sections;
+    const activeIdx = sections.findIndex((s) => s.status !== "completed");
+    const activeSection =
+      activeIdx === -1 ? sections[sections.length - 1].section : sections[activeIdx].section;
+    const seenNextSection = new Set<number>();
+    return sections.filter((s) => {
+      if (s.section === activeSection) return true;
+      if (s.section === activeSection + 1 && !seenNextSection.has(s.section)) {
+        seenNextSection.add(s.section);
+        return true;
+      }
+      return false;
+    });
+  }, [sections]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -620,7 +624,7 @@ const HomeScreen = () => {
 
         <SectionList
           style={styles.scroll}
-          sections={sections}
+          sections={visibleSections}
           keyExtractor={(item) => `unit-${item.id}`}
           renderSectionHeader={({ section }) => <UnitHeader unit={section} />}
           renderItem={({ item }) => <UnitNodePath unit={item} />}
@@ -647,6 +651,25 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   retryBtnText: { color: colors.primaryForeground, fontWeight: "600", fontSize: 15 },
+  lockedUnitCard: {
+    marginHorizontal: 32,
+    marginVertical: 24,
+    paddingVertical: 32,
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+  },
+  lockedUnitMsg: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    paddingHorizontal: 24,
+    lineHeight: 20,
+  },
 
   // Stats bar (fixed above list)
   statsBar: {

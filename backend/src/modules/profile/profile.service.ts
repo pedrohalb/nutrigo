@@ -75,8 +75,8 @@ export const profileService = {
       unit: u.unitNumber,
       title: u.title,
       status: u.status,
-      nodes: buildLayout([]).nodes,
-      mascots: buildLayout([]).mascots,
+      nodes: buildLayout([], u.unitNumber).nodes,
+      mascots: buildLayout([], u.unitNumber).mascots,
     }));
 
     return { profile, units };

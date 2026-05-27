@@ -17,7 +17,7 @@ export const unitsService = {
       .map(([section, sectionUnits]) => ({
         section,
         units: sectionUnits.map((u) => {
-          const { nodes, mascots } = buildLayout(u.lessons);
+          const { nodes, mascots } = buildLayout(u.lessons, u.unitNumber);
           return {
             id: u.id,
             section: u.section,
@@ -37,7 +37,7 @@ export const unitsService = {
     const unit = await unitsRepo.findById(unitId, userId);
     if (!unit) throw new AppError(404, 'NOT_FOUND', 'Unit not found');
 
-    const { nodes, mascots } = buildLayout(unit.lessons);
+    const { nodes, mascots } = buildLayout(unit.lessons, unit.unitNumber);
 
     return {
       id: unit.id,

@@ -9,11 +9,27 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutrigo -d nutrigo"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgresql://nutrigo:nutrigo@postgres:5432/nutrigo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   pgdata:

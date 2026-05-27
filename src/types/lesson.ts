@@ -2,7 +2,8 @@ export type MascotImage = 'cheer' | 'reading' | 'thumbsup' | 'love';
 
 export interface LessonNode {
   id: string;
-  type: 'star' | 'lock' | 'chest' | 'book';
+  lessonId: string;
+  type: 'star' | 'flame' | 'zap' | 'target' | 'medal' | 'brain' | 'heart' | 'leaf' | 'sun' | 'shield' | 'chest';
   status: 'completed' | 'current' | 'locked';
   offsetX: number;
   label?: string;
