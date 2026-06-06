@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, TouchableOpacity, Text } from 'react-native';
 import { Home, Trophy, User } from 'lucide-react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../App';
 import { colors } from '../../styles/colors';
 import { styles } from './styles';
+import { challengesApi } from '../../services/api/challenges';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -18,11 +19,31 @@ const tabs = [
 const BottomNav = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
+  const [pendingClaims, setPendingClaims] = useState(0);
+
+  const refresh = React.useCallback(() => {
+    challengesApi
+      .getChallenges()
+      .then((data) => setPendingClaims(data.pendingClaims ?? 0))
+      .catch(() => {});
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
+
+  useEffect(() => {
+    const id = setInterval(refresh, 15000);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   return (
     <View style={styles.nav}>
       {tabs.map(({ icon: Icon, route: tabRoute }) => {
         const active = route.name === tabRoute;
+        const showBadge = tabRoute === 'Challenges' && pendingClaims > 0;
         return (
           <TouchableOpacity
             key={tabRoute}
@@ -30,11 +51,20 @@ const BottomNav = () => {
             style={styles.tab}
             activeOpacity={0.7}
           >
-            <Icon
-              size={24}
-              color={active ? colors.primary : colors.mutedForeground}
-              strokeWidth={active ? 2.5 : 2}
-            />
+            <View>
+              <Icon
+                size={24}
+                color={active ? colors.primary : colors.mutedForeground}
+                strokeWidth={active ? 2.5 : 2}
+              />
+              {showBadge && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {pendingClaims > 9 ? '9+' : pendingClaims}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}

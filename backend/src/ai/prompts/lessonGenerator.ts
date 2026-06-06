@@ -1,31 +1,54 @@
 import { GoalKind } from '@prisma/client';
 
-const QUESTION_SCHEMA_DOC = `
-Cada questão deve ser um dos três tipos abaixo:
+const MISSION = `MISSÃO DO APP:
+O Nutrigo existe para que o usuário, ao final da trilha, consiga MONTAR SUA PRÓPRIA DIETA
+e MELHORAR SEUS HÁBITOS ALIMENTARES sem depender de nutricionista ou aplicativos pagos.
+Cada lição deve avançar essa autonomia: ensinar a LER rótulos, ESTIMAR porções, COMBINAR
+alimentos por nutriente, ADAPTAR refeições ao orçamento/rotina e RECONHECER ultraprocessados.
+Privilegie conhecimento ACIONÁVEL no dia-a-dia em vez de curiosidades acadêmicas.`;
+
+const QUESTION_GUIDELINES = `REGRAS PARA AS QUESTÕES:
+- Crie questões aplicadas, com cenários reais (almoço fora, lanche no trabalho, treino, jejum etc.)
+  em vez de definições enciclopédicas.
+- VARIAÇÃO DA RESPOSTA CORRETA: distribua \`correctIndex\` e \`correctChip\` aleatoriamente entre
+  as posições. A alternativa correta deve aparecer RARAMENTE na primeira posição (índice 0).
+  Tente manter no máximo ~20% das questões com correctIndex = 0; prefira índices 1, 2 ou 3.
+- Em image-choice: o emoji DEVE representar visualmente o alimento/conceito do label de forma
+  inequívoca. Se não houver emoji adequado (ex.: "feijão preto", "fibras"), use multiple-choice
+  ou fill-blank em vez de forçar um emoji genérico. Nunca use 🍽️/🥄/❓ como ícone do alimento.
+- explanation deve ser uma justificativa curta e prática (1-2 frases) que reforce a regra
+  aplicável fora da prova.
+
+Tipos de questão (responda como JSON, sem comentários):
 
 1. multiple-choice:
 {
   "type": "multiple-choice",
   "question": "texto da pergunta",
   "options": ["opção A", "opção B", "opção C", "opção D"],
-  "correctIndex": 0,
+  "correctIndex": 2,
   "explanation": "explicação curta do porquê a resposta está correta"
 }
 
-2. image-choice (use emojis representativos):
+2. image-choice (emojis que representam SEM ambiguidade o alimento):
 {
   "type": "image-choice",
-  "question": "texto da pergunta",
-  "options": [{"label": "Frango", "emoji": "🍗"}, {"label": "Brócolis", "emoji": "🥦"}],
+  "question": "Qual destes é fonte primária de proteína magra?",
+  "options": [
+    {"label": "Pão branco", "emoji": "🍞"},
+    {"label": "Frango grelhado", "emoji": "🍗"},
+    {"label": "Refrigerante", "emoji": "🥤"},
+    {"label": "Sorvete", "emoji": "🍨"}
+  ],
   "correctIndex": 1,
-  "explanation": "explicação curta"
+  "explanation": "Frango grelhado tem ~25g de proteína a cada 100g e baixa gordura."
 }
 
 3. fill-blank (complete a frase):
 {
   "type": "fill-blank",
   "question": "A principal fonte de energia do corpo são os ___.",
-  "chips": ["carboidratos", "proteínas", "gorduras", "vitaminas"],
+  "chips": ["proteínas", "carboidratos", "gorduras", "vitaminas"],
   "correctChip": "carboidratos",
   "explanation": "explicação curta"
 }`;
@@ -38,13 +61,18 @@ export function buildSkeletonSystemPrompt(profile: {
 }) {
   return `Você é um especialista em educação nutricional gerando uma trilha de aprendizado personalizada estilo Duolingo.
 
+${MISSION}
+
 Perfil do usuário:
 - Nome: ${profile.name}
 - Objetivos: ${profile.objectives.join(', ')}
 - Tópicos de interesse: ${profile.topics.join(', ')}
 - Meta diária: ${profile.goal}
 
-Gere um plano educativo coerente e progressivo. A resposta deve ser APENAS JSON válido, sem texto adicional.`;
+Estruture o plano para que, ao final da última unidade, o usuário consiga MONTAR UMA DIETA
+SOZINHO alinhada aos objetivos dele. Vá da base (macronutrientes, leitura de rótulos, porções)
+para aplicação (planejamento semanal, substituições, adaptação a contextos).
+A resposta deve ser APENAS JSON válido, sem texto adicional.`;
 }
 
 export function buildSkeletonUserPrompt() {
@@ -67,13 +95,15 @@ export function buildFullUnitSystemPrompt(profile: {
 }) {
   return `Você é um especialista em educação nutricional gerando conteúdo educativo personalizado estilo Duolingo.
 
+${MISSION}
+
 Perfil do usuário:
 - Nome: ${profile.name}
 - Objetivos: ${profile.objectives.join(', ')}
 - Tópicos de interesse: ${profile.topics.join(', ')}
 - Meta diária: ${profile.goal}
 
-${QUESTION_SCHEMA_DOC}
+${QUESTION_GUIDELINES}
 
 A resposta deve ser APENAS JSON válido, sem texto adicional.`;
 }

@@ -583,9 +583,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   materialCardTitle: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "600",
     color: colors.foreground,
+    flexWrap: "wrap",
   },
   materialCardText: {
     fontSize: 14,

@@ -4,7 +4,12 @@ export const unitsRepo = {
   findAllByUser(userId: string) {
     return prisma.unit.findMany({
       where: { userId },
-      include: { lessons: { orderBy: { orderIndex: 'asc' } } },
+      include: {
+        lessons: {
+          orderBy: { orderIndex: 'asc' },
+          include: { _count: { select: { questions: true } } },
+        },
+      },
       orderBy: [{ section: 'asc' }, { unitNumber: 'asc' }],
     });
   },
@@ -12,7 +17,12 @@ export const unitsRepo = {
   findById(id: string, userId: string) {
     return prisma.unit.findFirst({
       where: { id, userId },
-      include: { lessons: { orderBy: { orderIndex: 'asc' } } },
+      include: {
+        lessons: {
+          orderBy: { orderIndex: 'asc' },
+          include: { _count: { select: { questions: true } } },
+        },
+      },
     });
   },
 

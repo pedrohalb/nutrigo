@@ -5,6 +5,9 @@ export interface LessonNode {
   status: 'completed' | 'current' | 'locked';
   offsetX: number;
   label?: string;
+  xpReward: number;
+  position: number;
+  total: number;
 }
 
 export interface Mascot {
@@ -17,6 +20,7 @@ type LessonInput = {
   id: string;
   status: string;
   title: string;
+  _count?: { questions: number };
 };
 
 type PlayableType = Exclude<LessonNode['type'], 'chest'>;
@@ -52,21 +56,31 @@ export function buildLayout(
   // Odd units curve to the right; even units mirror to the left.
   const direction: 1 | -1 = unitNumber % 2 === 1 ? 1 : -1;
 
+  const total = lessons.length;
+
   // One node per lesson
   const nodes: LessonNode[] = lessons.map((lesson, i) => {
     const status = lessonStatus(lesson);
+    const numQuestions = lesson._count?.questions ?? 0;
+    // Same base formula used at submit time, minus the conditional streak bonus.
+    // Redoing a completed lesson awards half XP.
+    const baseXp = numQuestions * 20 + 100;
+    const xpReward = status === 'completed' ? Math.floor(baseXp / 2) : baseXp;
     return {
       id: lesson.id,
       lessonId: lesson.id,
       type: PLAYABLE_TYPES[i % PLAYABLE_TYPES.length],
       status,
       offsetX: offsetAt(i, direction),
-      label: status === 'current' ? lesson.title : undefined,
+      // Label always carries the lesson title — frontend decides when to show it.
+      label: lesson.title,
+      xpReward,
+      position: i + 1,
+      total,
     };
   });
 
   // One mascot per unit, around the middle of the path
-  const total = nodes.length;
   const mascots: Mascot[] = [];
   if (total > 0) {
     const nodeIdx = Math.min(2, total - 1);

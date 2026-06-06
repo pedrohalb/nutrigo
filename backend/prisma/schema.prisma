@@ -162,13 +162,15 @@ model ChallengeTemplate {
 }
 
 model UserChallengeProgress {
-  userId      String   @map("user_id") @db.Uuid
-  templateId  String   @map("template_id") @db.Uuid
-  periodStart DateTime @map("period_start") @db.Date
-  progress    Int      @default(0)
+  userId      String    @map("user_id") @db.Uuid
+  templateId  String    @map("template_id") @db.Uuid
+  periodStart DateTime  @map("period_start") @db.Date
+  progress    Int       @default(0)
   total       Int
-  done        Boolean  @default(false)
+  done        Boolean   @default(false)
   completedAt DateTime? @map("completed_at") @db.Timestamptz
+  claimed     Boolean   @default(false)
+  claimedAt   DateTime? @map("claimed_at") @db.Timestamptz
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   template ChallengeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)

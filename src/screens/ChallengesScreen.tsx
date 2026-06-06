@@ -19,34 +19,59 @@ import { challengesApi, type ChallengeItem } from "../services/api/challenges";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const DailyChallengeCard = ({ c }: { c: ChallengeItem }) => (
-  <View style={styles.dailyCard}>
-    <View style={styles.dailyHeader}>
-      <Text style={styles.dailyEmoji}>{c.emoji}</Text>
-      <View style={styles.dailyBadge}>
-        <Text style={styles.dailyBadgeText}>hoje</Text>
+const DailyChallengeCard = ({
+  c,
+  onClaim,
+}: {
+  c: ChallengeItem;
+  onClaim: () => void;
+}) => {
+  const canClaim = c.done && !c.claimed;
+  return (
+    <View style={styles.dailyCard}>
+      <View style={styles.dailyHeader}>
+        <Text style={styles.dailyEmoji}>{c.emoji}</Text>
+        <View style={styles.dailyBadge}>
+          <Text style={styles.dailyBadgeText}>hoje</Text>
+        </View>
+      </View>
+      <Text style={styles.dailyTitle}>{c.title}</Text>
+      <Text style={styles.dailyDesc}>{c.desc}</Text>
+      <View style={styles.dailyBarBg}>
+        <View
+          style={[
+            styles.dailyBarFill,
+            {
+              width: `${Math.min((c.progress / Math.max(c.total, 1)) * 100, 100)}%`,
+            },
+          ]}
+        />
+      </View>
+      <View style={styles.dailyFooter}>
+        <Text style={styles.dailyProgress}>
+          {c.progress} / {c.total}
+        </Text>
+        {canClaim ? (
+          <TouchableOpacity
+            style={styles.dailyClaimButton}
+            onPress={onClaim}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.dailyClaimText}>Coletar +{c.exp}</Text>
+          </TouchableOpacity>
+        ) : c.claimed ? (
+          <View style={styles.dailyExpBadge}>
+            <Text style={styles.dailyExpText}>Coletado</Text>
+          </View>
+        ) : (
+          <View style={styles.dailyExpBadge}>
+            <Text style={styles.dailyExpText}>+ {c.exp} exp</Text>
+          </View>
+        )}
       </View>
     </View>
-    <Text style={styles.dailyTitle}>{c.title}</Text>
-    <Text style={styles.dailyDesc}>{c.desc}</Text>
-    <View style={styles.dailyBarBg}>
-      <View
-        style={[
-          styles.dailyBarFill,
-          { width: `${Math.min((c.progress / c.total) * 100, 100)}%` },
-        ]}
-      />
-    </View>
-    <View style={styles.dailyFooter}>
-      <Text style={styles.dailyProgress}>
-        {c.progress} / {c.total}
-      </Text>
-      <View style={styles.dailyExpBadge}>
-        <Text style={styles.dailyExpText}>+ {c.exp} exp</Text>
-      </View>
-    </View>
-  </View>
-);
+  );
+};
 
 const ChallengesScreen = () => {
   const navigation = useNavigation<Nav>();
@@ -54,15 +79,26 @@ const ChallengesScreen = () => {
   const [weekly, setWeekly] = useState<ChallengeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    challengesApi
+  const reload = React.useCallback(() => {
+    return challengesApi
       .getChallenges()
       .then((data) => {
         setDaily(data.daily);
         setWeekly(data.weekly);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    reload().finally(() => setLoading(false));
+  }, [reload]);
+
+  const handleClaimDaily = async (c: ChallengeItem) => {
+    try {
+      await challengesApi.claim(c.id);
+      reload();
+    } catch {}
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -91,7 +127,11 @@ const ChallengesScreen = () => {
           >
             <Text style={styles.sectionLabel}>Desafio diário</Text>
             {daily.map((c) => (
-              <DailyChallengeCard key={c.id} c={c} />
+              <DailyChallengeCard
+                key={c.id}
+                c={c}
+                onClaim={() => handleClaimDaily(c)}
+              />
             ))}
 
             <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
@@ -99,7 +139,11 @@ const ChallengesScreen = () => {
             </Text>
             <View style={styles.challengeList}>
               {weekly.map((c) => (
-                <ChallengeCard key={c.id} challenge={c} />
+                <ChallengeCard
+                  key={c.id}
+                  challenge={c}
+                  onClaimed={() => reload()}
+                />
               ))}
             </View>
           </ScrollView>
@@ -216,6 +260,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.primaryForeground,
+  },
+  dailyClaimButton: {
+    backgroundColor: "#F5A623",
+    borderRadius: radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dailyClaimText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });
 

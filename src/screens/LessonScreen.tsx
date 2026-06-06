@@ -7,6 +7,8 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { X, CheckCircle, Flag } from "lucide-react-native";
@@ -33,10 +35,12 @@ const WRONG_COLOR = "#ef4444";
 const ProgressHeader = ({
   step,
   total,
+  progressRatio,
   onClose,
 }: {
   step: number;
   total: number;
+  progressRatio: number;
   onClose: () => void;
 }) => (
   <View style={styles.progressHeader}>
@@ -48,7 +52,7 @@ const ProgressHeader = ({
     </TouchableOpacity>
     <View style={styles.progressBarBg}>
       <View
-        style={[styles.progressBarFill, { width: `${(step / total) * 100}%` }]}
+        style={[styles.progressBarFill, { width: `${progressRatio * 100}%` }]}
       />
     </View>
     <Text style={styles.progressText}>
@@ -228,11 +232,28 @@ const EncouragementScreen = () => (
   </View>
 );
 
-const LessonCompleteScreen = ({ xpEarned, correctCount, totalCount }: { xpEarned: number; correctCount: number; totalCount: number }) => {
+const LessonCompleteScreen = ({
+  xpEarned,
+  correctCount,
+  totalCount,
+  replay,
+}: {
+  xpEarned: number;
+  correctCount: number;
+  totalCount: number;
+  replay: boolean;
+}) => {
   const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
   return (
     <View style={styles.rewardScreen}>
-      <Text style={styles.completeTitle}>Lição completa!</Text>
+      <Text style={styles.completeTitle}>
+        {replay ? "Lição revisada!" : "Lição completa!"}
+      </Text>
+      {replay && (
+        <Text style={styles.replayNote}>
+          Você já tinha concluído. Sem XP novo, só prática.
+        </Text>
+      )}
       <Image
         source={require("../../assets/images/nutrigo-broccoli-celebrate.png")}
         style={styles.celebrateImage}
@@ -266,26 +287,111 @@ const LessonCompleteScreen = ({ xpEarned, correctCount, totalCount }: { xpEarned
   );
 };
 
+const LevelUpScreen = ({ level }: { level: number }) => (
+  <View style={styles.rewardScreen}>
+    <Text style={styles.levelUpKicker}>Você subiu de nível!</Text>
+    <Text style={styles.levelUpNumber}>Nível {level}</Text>
+    <Image
+      source={require("../../assets/images/icon-energy.png")}
+      style={styles.levelUpIcon}
+      resizeMode="contain"
+    />
+    <View style={styles.levelUpBubble}>
+      <Text style={styles.levelUpBubbleText}>
+        Continue assim e desbloqueie novas trilhas mais rápido!
+      </Text>
+    </View>
+  </View>
+);
+
+const DAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
+
+// Map JS getDay() (0=Sun..6=Sat) → index in DAY_LABELS (0=Mon..6=Sun)
+function todayWeekdayIndex(): number {
+  return (new Date().getDay() + 6) % 7;
+}
+
+const StreakDayCircle = ({
+  filled,
+  isToday,
+  delay,
+}: {
+  filled: boolean;
+  isToday: boolean;
+  delay: number;
+}) => {
+  const scale = useRef(new Animated.Value(filled ? 0 : 1)).current;
+  const opacity = useRef(new Animated.Value(filled ? 0 : 1)).current;
+
+  useEffect(() => {
+    if (!filled) return;
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: isToday ? 480 : 260,
+        delay,
+        easing: isToday
+          ? Easing.out(Easing.back(2))
+          : Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [filled, isToday, delay]);
+
+  return (
+    <View
+      style={[
+        styles.dayCircle,
+        { backgroundColor: filled ? colors.streak : colors.muted },
+      ]}
+    >
+      {filled && (
+        <Animated.View style={{ transform: [{ scale }], opacity }}>
+          <CheckCircle size={16} color={colors.primaryForeground} />
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
 const StreakScreen = ({ streakDays }: { streakDays: number }) => {
-  const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
+  const todayIdx = todayWeekdayIndex();
+  // Fill today + the prior days of THIS week covered by the current streak.
+  const firstFilledIdx = Math.max(0, todayIdx - (streakDays - 1));
+
   return (
     <View style={styles.rewardScreen}>
       <Text style={styles.streakNumber}>{streakDays}</Text>
-      <Text style={styles.streakLabel}>{streakDays === 1 ? "dia de ofensiva!" : "dias de ofensiva!"}</Text>
+      <Text style={styles.streakLabel}>
+        {streakDays === 1 ? "dia de ofensiva!" : "dias de ofensiva!"}
+      </Text>
       <Image
         source={require("../../assets/images/icon-fire.png")}
         style={styles.streakFireIcon}
         resizeMode="contain"
       />
       <View style={styles.daysRow}>
-        {days.map((d, i) => (
-          <View key={d} style={styles.dayItem}>
-            <Text style={styles.dayLabel}>{d}</Text>
-            <View style={[styles.dayCircle, { backgroundColor: i === 0 ? colors.streak : colors.muted }]}>
-              {i === 0 && <CheckCircle size={16} color={colors.primaryForeground} />}
+        {DAY_LABELS.map((d, i) => {
+          const filled = i >= firstFilledIdx && i <= todayIdx;
+          const isToday = i === todayIdx;
+          // Past days fill first (staggered), then today pops in last
+          const staggerSlot = filled ? i - firstFilledIdx : 0;
+          const delay = isToday
+            ? (todayIdx - firstFilledIdx) * 90 + 120
+            : staggerSlot * 90;
+          return (
+            <View key={d} style={styles.dayItem}>
+              <Text style={styles.dayLabel}>{d}</Text>
+              <StreakDayCircle filled={filled} isToday={isToday} delay={delay} />
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
       <View style={styles.streakWarning}>
         <Text style={styles.streakWarningText}>
@@ -297,6 +403,13 @@ const StreakScreen = ({ streakDays }: { streakDays: number }) => {
 };
 
 /* ─── Main Lesson Page ─── */
+type Step =
+  | { kind: "question"; qIdx: number }
+  | { kind: "encouragement" }
+  | { kind: "complete" }
+  | { kind: "levelUp" }
+  | { kind: "streak" };
+
 const LessonScreen = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -304,20 +417,61 @@ const LessonScreen = () => {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loadingLesson, setLoadingLesson] = useState(true);
-  const [step, setStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState<Step | null>(null);
   const [mcSelected, setMcSelected] = useState<number | null>(null);
   const [imgSelected, setImgSelected] = useState<number | null>(null);
   const [fillSelected, setFillSelected] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
-  const answersRef = useRef<Array<{ questionId: string; userAnswer: UserAnswer }>>([]);
+  const [correctCount, setCorrectCount] = useState(0);
+
+  const queueRef = useRef<number[]>([]);
+  const correctSetRef = useRef<Set<number>>(new Set());
+  const encouragementShownRef = useRef(false);
+  const finalAnswersRef = useRef<Map<string, UserAnswer>>(new Map());
+  const submittedRef = useRef(false);
+
+  const resetSelection = () => {
+    setAnswered(false);
+    setShowExplanation(false);
+    setMcSelected(null);
+    setImgSelected(null);
+    setFillSelected(null);
+  };
+
+  const submitIfNeeded = () => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    const answers = Array.from(finalAnswersRef.current.entries()).map(
+      ([questionId, userAnswer]) => ({ questionId, userAnswer }),
+    );
+    lessonsApi.submit(lessonId, answers).then(setSubmitResult).catch(() => {});
+  };
+
+  const advance = () => {
+    resetSelection();
+    if (queueRef.current.length === 0) {
+      submitIfNeeded();
+      setCurrentStep({ kind: "complete" });
+      return;
+    }
+    const qIdx = queueRef.current.shift()!;
+    setCurrentStep({ kind: "question", qIdx });
+  };
 
   useEffect(() => {
     lessonsApi
       .getLesson(lessonId)
       .then((data) => {
         setQuestions(data.questions);
+        queueRef.current = data.questions.map((_, i) => i);
+        const first = queueRef.current.shift();
+        if (first !== undefined) {
+          setCurrentStep({ kind: "question", qIdx: first });
+        } else {
+          setCurrentStep({ kind: "complete" });
+        }
         setLoadingLesson(false);
       })
       .catch(() => {
@@ -325,9 +479,8 @@ const LessonScreen = () => {
       });
   }, [lessonId]);
 
-  const totalSteps = questions.length + 3;
-  const isQuestionStep = step < questions.length;
-  const currentQuestion = isQuestionStep ? questions[step] : null;
+  const currentQuestion =
+    currentStep?.kind === "question" ? questions[currentStep.qIdx] : null;
 
   const isCorrect: boolean | null = (() => {
     if (!answered || !currentQuestion) return null;
@@ -349,47 +502,91 @@ const LessonScreen = () => {
   };
 
   const canProceed = (): boolean => {
-    if (!isQuestionStep) return true;
+    if (!currentStep) return false;
+    if (currentStep.kind !== "question") return true;
     if (answered) return true;
     return hasSelection();
   };
 
-  const recordAnswer = (q: Question, qi: number) => {
-    let userAnswer: UserAnswer;
-    if (q.type === "multiple-choice") userAnswer = { selectedIndex: mcSelected! };
-    else if (q.type === "image-choice") userAnswer = { selectedIndex: imgSelected! };
-    else userAnswer = { selectedChip: fillSelected! };
-
-    answersRef.current[qi] = { questionId: (q as any).id ?? `q-${qi}`, userAnswer };
+  const buildUserAnswer = (q: Question): UserAnswer | null => {
+    if (q.type === "multiple-choice")
+      return mcSelected !== null ? { selectedIndex: mcSelected } : null;
+    if (q.type === "image-choice")
+      return imgSelected !== null ? { selectedIndex: imgSelected } : null;
+    if (q.type === "fill-blank")
+      return fillSelected !== null ? { selectedChip: fillSelected } : null;
+    return null;
   };
 
-  const handleAction = async () => {
-    if (isQuestionStep && !answered) {
-      // Record answer before showing result
-      if (currentQuestion) recordAnswer(currentQuestion, step);
-      setAnswered(true);
-      setShowExplanation(false);
+  const handleAction = () => {
+    if (!currentStep) return;
 
-      // Submit after last question
-      if (step === questions.length - 1) {
-        lessonsApi.submit(lessonId, answersRef.current).then(setSubmitResult).catch(() => {});
+    if (currentStep.kind === "question") {
+      if (!answered) {
+        setAnswered(true);
+        return;
+      }
+      const q = currentQuestion!;
+      const qIdx = currentStep.qIdx;
+      if (isCorrect) {
+        const ua = buildUserAnswer(q);
+        if (ua) {
+          finalAnswersRef.current.set((q as any).id ?? `q-${qIdx}`, ua);
+        }
+        if (!correctSetRef.current.has(qIdx)) {
+          correctSetRef.current.add(qIdx);
+          setCorrectCount(correctSetRef.current.size);
+        }
+        const midpoint = Math.ceil(questions.length / 2);
+        const shouldEncourage =
+          !encouragementShownRef.current &&
+          correctSetRef.current.size === midpoint &&
+          queueRef.current.length > 0;
+        if (shouldEncourage) {
+          encouragementShownRef.current = true;
+          resetSelection();
+          setCurrentStep({ kind: "encouragement" });
+          return;
+        }
+      } else {
+        queueRef.current.push(qIdx);
+      }
+      advance();
+      return;
+    }
+
+    if (currentStep.kind === "encouragement") {
+      advance();
+      return;
+    }
+
+    if (currentStep.kind === "complete") {
+      if (submitResult?.levelUp) {
+        setCurrentStep({ kind: "levelUp" });
+      } else if (submitResult?.streakIncremented) {
+        setCurrentStep({ kind: "streak" });
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
       }
       return;
     }
-    if (step < totalSteps - 1) {
-      setStep((s) => s + 1);
-      setAnswered(false);
-      setShowExplanation(false);
-      setMcSelected(null);
-      setImgSelected(null);
-      setFillSelected(null);
-    } else {
-      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+
+    if (currentStep.kind === "levelUp") {
+      if (submitResult?.streakIncremented) {
+        setCurrentStep({ kind: "streak" });
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+      }
+      return;
     }
+
+    navigation.reset({ index: 0, routes: [{ name: "Home" }] });
   };
 
   const renderContent = () => {
-    if (isQuestionStep && currentQuestion) {
+    if (!currentStep) return null;
+
+    if (currentStep.kind === "question" && currentQuestion) {
       switch (currentQuestion.type) {
         case "multiple-choice":
           return (
@@ -424,22 +621,22 @@ const LessonScreen = () => {
       }
     }
 
-    const rewardStep = step - questions.length;
-    const correctCount = submitResult?.results.filter((r) => r.isCorrect).length ?? 0;
-
-    if (rewardStep === 0) return <EncouragementScreen />;
-    if (rewardStep === 1)
+    if (currentStep.kind === "encouragement") return <EncouragementScreen />;
+    if (currentStep.kind === "complete")
       return (
         <LessonCompleteScreen
-          xpEarned={submitResult?.xpEarned ?? 100}
-          correctCount={correctCount}
+          xpEarned={submitResult?.xpEarned ?? 0}
+          correctCount={questions.length}
           totalCount={questions.length}
+          replay={submitResult?.replay ?? false}
         />
       );
+    if (currentStep.kind === "levelUp")
+      return <LevelUpScreen level={submitResult?.newLevel ?? 1} />;
     return <StreakScreen streakDays={submitResult?.streakDays ?? 1} />;
   };
 
-  if (loadingLesson) {
+  if (loadingLesson || !currentStep) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -449,13 +646,26 @@ const LessonScreen = () => {
     );
   }
 
+  const isQuestionStep = currentStep.kind === "question";
   const buttonLabel = isQuestionStep && !answered ? "Responder" : "Próximo";
+
+  // Progress bar: ratio of unique correct answers to total
+  const totalQuestions = questions.length || 1;
+  const progressRatio =
+    currentStep.kind === "complete" || currentStep.kind === "streak"
+      ? 1
+      : Math.min(correctCount / totalQuestions, 1);
 
   return (
     <SafeAreaView style={styles.safe}>
       <ProgressHeader
-        step={Math.min(step + 1, totalSteps)}
-        total={totalSteps}
+        step={
+          isQuestionStep
+            ? Math.min(correctCount + 1, totalQuestions)
+            : totalQuestions
+        }
+        total={totalQuestions}
+        progressRatio={progressRatio}
         onClose={() => navigation.reset({ index: 0, routes: [{ name: "Home" }] })}
       />
       <View style={styles.contentArea}>{renderContent()}</View>
@@ -485,7 +695,9 @@ const LessonScreen = () => {
                   { color: isCorrect ? CORRECT_COLOR : WRONG_COLOR },
                 ]}
               >
-                {isCorrect ? "Correto" : "Incorreto"}
+                {isCorrect
+                  ? "Correto"
+                  : "Incorreto — voltaremos a esta questão"}
               </Text>
               {isCorrect && (
                 <TouchableOpacity
@@ -757,6 +969,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: 16,
   },
+  replayNote: {
+    fontSize: 13,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    marginBottom: 16,
+    marginHorizontal: 32,
+  },
   celebrateImage: {
     width: 208,
     height: 208,
@@ -861,6 +1080,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.mutedForeground,
     textAlign: "center",
+  },
+  /* Level up */
+  levelUpKicker: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.mutedForeground,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  levelUpNumber: {
+    fontSize: 44,
+    fontWeight: "800",
+    color: "#F5A623",
+    marginBottom: 12,
+  },
+  levelUpIcon: {
+    width: 180,
+    height: 130,
+    marginBottom: 16,
+  },
+  levelUpBubble: {
+    backgroundColor: colors.card,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    maxWidth: 280,
+  },
+  levelUpBubbleText: {
+    fontSize: 14,
+    color: colors.foreground,
+    textAlign: "center",
+    fontWeight: "600",
   },
 });
 

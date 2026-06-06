@@ -7,6 +7,9 @@ export interface LessonNode {
   status: 'completed' | 'current' | 'locked';
   offsetX: number;
   label?: string;
+  xpReward: number;
+  position: number;
+  total: number;
 }
 
 export interface Mascot {

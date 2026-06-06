@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './modules/auth/auth.routes';
 import { profileRoutes } from './modules/profile/profile.routes';
@@ -8,6 +9,7 @@ import { lessonsRoutes } from './modules/lessons/lessons.routes';
 import { studyGuideRoutes } from './modules/studyGuide/studyGuide.routes';
 import { chatRoutes } from './modules/chat/chat.routes';
 import { challengesRoutes } from './modules/challenges/challenges.routes';
+import { openApiSpec } from './openapi';
 
 const app = express();
 
@@ -17,6 +19,9 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
+
+app.get('/api/openapi.json', (_req, res) => res.json(openApiSpec));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec as any));
 
 app.use('/api/auth', authRoutes);
 app.use('/api', profileRoutes);

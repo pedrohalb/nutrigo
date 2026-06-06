@@ -19,6 +19,41 @@ function toQuestionType(aiType: string) {
   return map[aiType] ?? 'multiple_choice';
 }
 
+// Fisher-Yates returning permutation indices
+function permutation(n: number): number[] {
+  const p = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  return p;
+}
+
+// Shuffles options in-place and biases against the correct answer landing on index 0
+function shuffleQuestionInPlace(q: any) {
+  if (q.type === 'multiple-choice' || q.type === 'image-choice') {
+    if (!Array.isArray(q.options) || typeof q.correctIndex !== 'number') return;
+    const perm = permutation(q.options.length);
+    let newOptions = perm.map((oi) => q.options[oi]);
+    let newCorrect = perm.indexOf(q.correctIndex);
+    if (newCorrect === 0 && newOptions.length > 1 && Math.random() < 0.6) {
+      const swap = 1 + Math.floor(Math.random() * (newOptions.length - 1));
+      [newOptions[0], newOptions[swap]] = [newOptions[swap], newOptions[0]];
+      newCorrect = swap;
+    }
+    q.options = newOptions;
+    q.correctIndex = newCorrect;
+  } else if (q.type === 'fill-blank') {
+    if (!Array.isArray(q.chips)) return;
+    const perm = permutation(q.chips.length);
+    q.chips = perm.map((oi: number) => q.chips[oi]);
+  }
+}
+
+function shuffleQuestions(questions: any[]) {
+  for (const q of questions) shuffleQuestionInPlace(q);
+}
+
 export function startWorkers() {
   // ── Worker: generate-unit ──────────────────────────────────────────────
   const unitWorker = new Worker<GenerateUnitJobData>(
@@ -55,6 +90,7 @@ export function startWorkers() {
         console.log(`[generate-unit] Unidade atualizada no banco`);
 
         for (const lesson of result.lessons) {
+          shuffleQuestions(lesson.questions);
           const isFirst = lesson.orderIndex === 0;
           const createdLesson = await tx.lesson.create({
             data: {
@@ -112,6 +148,7 @@ export function startWorkers() {
       );
       console.log(`[generate-lesson] AI respondeu em ${Date.now() - t0}ms — "${result.title}" com ${result.questions.length} questões`);
 
+      shuffleQuestions(result.questions);
       await prisma.$transaction(async (tx) => {
         await tx.lesson.update({
           where: { id: lessonId },

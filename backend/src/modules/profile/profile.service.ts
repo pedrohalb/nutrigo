@@ -89,15 +89,19 @@ export const profileService = {
     ]);
     if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
 
+    const { prisma } = await import('../../config/db');
+
     // Find current unit: first non-completed generated unit
     const currentUnit = profile
-      ? await import('../../config/db').then(({ prisma }) =>
-          prisma.unit.findFirst({
-            where: { userId, status: { in: ['generated', 'generating'] } },
-            orderBy: [{ section: 'asc' }, { unitNumber: 'asc' }],
-          })
-        )
+      ? await prisma.unit.findFirst({
+          where: { userId, status: { in: ['generated', 'generating'] } },
+          orderBy: [{ section: 'asc' }, { unitNumber: 'asc' }],
+        })
       : null;
+
+    const pendingChallengeClaims = await prisma.userChallengeProgress.count({
+      where: { userId, done: true, claimed: false },
+    });
 
     return {
       user: { id: user.id, email: user.email },
@@ -109,6 +113,7 @@ export const profileService = {
         streak_days: profile?.streakDays ?? 0,
       },
       currentUnitId: currentUnit?.id ?? null,
+      pendingChallengeClaims,
     };
   },
 

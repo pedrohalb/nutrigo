@@ -1,10 +1,25 @@
 import { prisma } from '../../config/db';
 import * as repo from './challenges.repo';
+import { AppError } from '../../middleware/errorHandler';
 
 function startOfDay(date = new Date()): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+// Deterministic numeric hash of a string (FNV-1a, 32-bit, unsigned).
+function hash32(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function dailySeed(userId: string, day: Date): number {
+  return hash32(`${userId}:${day.toISOString().slice(0, 10)}`);
 }
 
 function startOfWeek(date = new Date()): Date {
@@ -91,12 +106,31 @@ export const challengesService = {
     const todayStart = startOfDay();
     const weekStart = startOfWeek();
 
+    // Pick the single daily template assigned to this user today.
+    // Stays the same across requests on the same day (deterministic seed).
+    const allDailyTemplates = templates.filter((t) => t.kind === 'daily');
+    const pickedDailyTemplate = allDailyTemplates.length
+      ? allDailyTemplates[dailySeed(userId, todayStart) % allDailyTemplates.length]
+      : null;
+
+    // Only the picked daily + every weekly is computed & persisted. Other dailies
+    // never get progress rows, so countPendingClaims naturally matches the screen.
+    const templatesToCompute = templates.filter(
+      (t) => t.kind === 'weekly' || (pickedDailyTemplate && t.id === pickedDailyTemplate.id),
+    );
+
     const results = await Promise.all(
-      templates.map(async (t) => {
+      templatesToCompute.map(async (t) => {
         const periodStart = t.kind === 'daily' ? todayStart : weekStart;
         const params = t.ruleParams as Record<string, number>;
-        const { progress, total } = await computeProgress(userId, t.rule, params, t.kind);
-        await repo.upsertProgress(userId, t.id, periodStart, progress, total);
+        const { progress: rawProgress, total } = await computeProgress(
+          userId,
+          t.rule,
+          params,
+          t.kind,
+        );
+        const progress = Math.min(rawProgress, total);
+        const row = await repo.upsertProgress(userId, t.id, periodStart, progress, total);
 
         return {
           id: t.id,
@@ -107,14 +141,53 @@ export const challengesService = {
           exp: t.exp,
           progress,
           total,
-          done: progress >= total,
+          done: row.done,
+          claimed: row.claimed,
+          periodStart: periodStart.toISOString(),
         };
       })
     );
 
+    // Count only what's actually displayed (today's daily + active weeklys)
+    const pendingClaims = results.filter((r) => r.done && !r.claimed).length;
+
     return {
       daily: results.filter((c) => c.kind === 'daily'),
       weekly: results.filter((c) => c.kind === 'weekly'),
+      pendingClaims,
+    };
+  },
+
+  async claim(userId: string, templateId: string) {
+    const template = await prisma.challengeTemplate.findUnique({ where: { id: templateId } });
+    if (!template) throw new AppError(404, 'NOT_FOUND', 'Challenge template not found');
+    const periodStart = template.kind === 'daily' ? startOfDay() : startOfWeek();
+    const row = await repo.getProgress(userId, templateId, periodStart);
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'No progress for this challenge in current period');
+    if (!row.done) throw new AppError(400, 'NOT_DONE', 'Challenge is not completed yet');
+    if (row.claimed) throw new AppError(400, 'ALREADY_CLAIMED', 'Challenge already claimed');
+
+    await repo.markClaimed(userId, templateId, periodStart);
+
+    // Grant XP — reuse the same level-up math as lessons submit.
+    const profile = await prisma.profile.findUniqueOrThrow({ where: { userId } });
+    let newXp = profile.xp + template.exp;
+    let newLevel = profile.level;
+    let levelUp = false;
+    while (newXp >= newLevel * 1000) {
+      newXp -= newLevel * 1000;
+      newLevel++;
+      levelUp = true;
+    }
+    await prisma.profile.update({
+      where: { userId },
+      data: { xp: newXp, level: newLevel },
+    });
+
+    return {
+      xpEarned: template.exp,
+      levelUp,
+      newLevel,
     };
   },
 };

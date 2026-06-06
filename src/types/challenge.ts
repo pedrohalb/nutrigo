@@ -1,4 +1,5 @@
 export interface Challenge {
+  id?: string;
   emoji: string;
   title: string;
   desc: string;
@@ -6,4 +7,5 @@ export interface Challenge {
   progress: number;
   total: number;
   done?: boolean;
+  claimed?: boolean;
 }

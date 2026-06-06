@@ -8,6 +8,10 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, LogOut, Pencil } from "lucide-react-native";
@@ -29,6 +33,9 @@ const ProfileScreen = () => {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [challenges, setChallenges] = useState<ChallengeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -61,24 +68,24 @@ const ProfileScreen = () => {
     ]);
   };
 
-  const handleEditName = () => {
-    Alert.prompt(
-      "Editar nome",
-      "Digite seu novo nome",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Salvar",
-          onPress: async (name?: string) => {
-            if (!name?.trim()) return;
-            await meApi.updateMe({ name: name.trim() });
-            load();
-          },
-        },
-      ],
-      "plain-text",
-      me?.profile?.name ?? ""
-    );
+  const openEditName = () => {
+    setNameDraft(me?.profile?.name ?? "");
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) return;
+    try {
+      setSavingName(true);
+      await meApi.updateMe({ name: trimmed });
+      setEditingName(false);
+      await load();
+    } catch {
+      Alert.alert("Erro", "Não foi possível salvar o nome.");
+    } finally {
+      setSavingName(false);
+    }
   };
 
   const name = me?.profile?.name ?? "";
@@ -124,7 +131,7 @@ const ProfileScreen = () => {
                 <View style={styles.nameRow}>
                   <Text style={styles.userName}>{name}</Text>
                   <TouchableOpacity
-                    onPress={handleEditName}
+                    onPress={openEditName}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Pencil size={14} color={colors.primary} />
@@ -170,7 +177,11 @@ const ProfileScreen = () => {
             <Text style={styles.sectionTitle}>Desafios</Text>
             <View style={styles.challengeList}>
               {challenges.map((c) => (
-                <ChallengeCard key={c.id} challenge={c} />
+                <ChallengeCard
+                  key={c.id}
+                  challenge={c}
+                  onClaimed={() => load()}
+                />
               ))}
             </View>
 
@@ -185,6 +196,56 @@ const ProfileScreen = () => {
 
         <BottomNav />
       </View>
+
+      <Modal
+        visible={editingName}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingName(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Editar nome</Text>
+            <TextInput
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              placeholder="Seu nome"
+              placeholderTextColor={colors.mutedForeground}
+              style={styles.modalInput}
+              autoFocus
+              maxLength={60}
+              returnKeyType="done"
+              onSubmitEditing={saveName}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setEditingName(false)}
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+              >
+                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveName}
+                disabled={savingName || !nameDraft.trim()}
+                style={[
+                  styles.modalBtn,
+                  styles.modalBtnPrimary,
+                  (savingName || !nameDraft.trim()) && { opacity: 0.5 },
+                ]}
+              >
+                {savingName ? (
+                  <ActivityIndicator color={colors.primaryForeground} size="small" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Salvar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -302,6 +363,62 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     color: colors.mutedForeground,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: 20,
+    gap: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.foreground,
+    backgroundColor: colors.background,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  modalBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    minWidth: 92,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnGhost: {
+    backgroundColor: "transparent",
+  },
+  modalBtnGhostText: {
+    color: colors.mutedForeground,
+    fontWeight: "600",
+  },
+  modalBtnPrimary: {
+    backgroundColor: colors.primary,
+  },
+  modalBtnPrimaryText: {
+    color: colors.primaryForeground,
+    fontWeight: "700",
   },
 });
 

@@ -8,8 +8,11 @@ export interface SubmitResult {
   results: Array<{ questionId: string; isCorrect: boolean; explanation: string }>;
   xpEarned: number;
   levelUp: boolean;
+  newLevel: number;
   streakDays: number;
+  streakIncremented: boolean;
   unitCompleted: boolean;
+  replay: boolean;
 }
 
 export const lessonsApi = {

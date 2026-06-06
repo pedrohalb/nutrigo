@@ -18,6 +18,7 @@ export interface MeResponse {
   profile: Profile | null;
   stats: { level: number; xp: number; xp_for_next_level: number; streak_days: number };
   currentUnitId: string | null;
+  pendingChallengeClaims: number;
 }
 
 export const meApi = {

@@ -144,7 +144,7 @@ const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.accent },
+  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   header: {
@@ -152,8 +152,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 40,
     paddingBottom: 48,
-    borderBottomLeftRadius: 60,
-    borderBottomRightRadius: 60,
+    // borderBottomLeftRadius: 60,
+    // borderBottomRightRadius: 60,
   },
   mascotCircle: {
     width: 112,

@@ -11,6 +11,7 @@ import {
   Dimensions,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -31,7 +32,6 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../App";
-import Svg, { Path } from "react-native-svg";
 import BottomNav from "../components/BottomNav";
 import { colors, radius } from "../theme";
 import type { LessonNode, MascotImage, Unit } from "../types/lesson";
@@ -49,12 +49,13 @@ const MASCOT_IMAGES: Record<MascotImage, ReturnType<typeof require>> = {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SHADOW_PRIMARY = "#1e4a31";
-const SHADOW_GOLD = "#B87C0C";
+const SHADOW_COMPLETED = "#7a9268";
 const SHADOW_MUTED = "#a8ab99";
 
-// Status color palette
+// Status color palette — completed uses a sage tone from the home palette
+// (colors.secondary) so finished lessons sit cohesively next to the current/locked ones.
 const STATUS_COLORS = {
-  completed: { bg: "#F5A623", shadow: SHADOW_GOLD, icon: "#fff" },
+  completed: { bg: colors.secondary, shadow: SHADOW_COMPLETED, icon: colors.primary },
   current: { bg: colors.primary, shadow: SHADOW_PRIMARY, icon: "#fff" },
   locked: {
     bg: colors.muted,
@@ -62,9 +63,6 @@ const STATUS_COLORS = {
     icon: colors.mutedForeground,
   },
 } as const;
-
-// Approximate label container height (bubble ~33 + arrow ~8 + marginBottom ~10)
-const LABEL_H = 51;
 
 // ── Sticky section header ──────────────────────────────────────────────────
 const UnitHeader = ({ unit }: { unit: Unit }) => {
@@ -98,6 +96,10 @@ const UnitHeader = ({ unit }: { unit: Unit }) => {
 };
 
 // ── Node icon ──────────────────────────────────────────────────────────────
+const BUBBLE_WIDTH = 240;
+
+type Anchor = { x: number; y: number; w: number; h: number };
+
 const NodeIcon = ({
   node,
   onPress,
@@ -110,13 +112,17 @@ const NodeIcon = ({
   const isCurrent = node.status === "current";
   const palette = STATUS_COLORS[node.status];
 
+  const [previewing, setPreviewing] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const nodeRef = useRef<View>(null);
+
+  // Pulse only on the current lesson (completed/locked stay static)
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.45)).current;
-  const labelY = useRef(new Animated.Value(0)).current;
   const pressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isActive) {
+    if (isCurrent) {
       Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -145,24 +151,6 @@ const NodeIcon = ({
               useNativeDriver: true,
             }),
           ]),
-        ]),
-      ).start();
-    }
-    if (isCurrent) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(labelY, {
-            toValue: -7,
-            duration: 550,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(labelY, {
-            toValue: 0,
-            duration: 550,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
         ]),
       ).start();
     }
@@ -203,86 +191,165 @@ const NodeIcon = ({
     chest:  <Trophy size={24} color={palette.icon} />,
   };
 
-  const inner = (
-    <View style={styles.nodeOuter}>
-      {isCurrent && node.label && (
-        <Animated.View
-          style={[
-            styles.labelContainer,
-            { transform: [{ translateY: labelY }] },
-          ]}
-        >
-          <View style={styles.labelBubble}>
-            <Text style={styles.labelText}>{node.label}</Text>
-          </View>
-          <View style={styles.labelArrow} />
-        </Animated.View>
-      )}
+  // Tap-triggered bubble for non-current nodes is rendered in a Modal so it
+  // overlays everything on the screen (escapes the SectionList stacking ctx).
+  // The current node's bubble is rendered by HomeScreen via CurrentNodeContext
+  // so it also escapes the stacking context.
+  const closePreview = () => {
+    setPreviewing(false);
+    setAnchor(null);
+  };
 
-      <View style={{ width: size, height: size + 5 }}>
-        {/* Pulse ring */}
-        {isActive && (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: -14,
-              left: -14,
-              width: size + 28,
-              height: size + 28,
-              borderRadius: (size + 28) / 2,
-              backgroundColor: palette.bg,
-              opacity: pulseOpacity,
-              transform: [{ scale: pulseScale }],
-            }}
-          />
-        )}
+  const handleStartPress = () => {
+    closePreview();
+    onPress?.();
+  };
 
-        {/* 3D shadow — stays fixed */}
-        <View
-          style={{
-            position: "absolute",
-            top: 5,
-            left: 0,
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: palette.shadow,
-          }}
-        />
+  const isCompleted = node.status === "completed";
+  const actionLabel = isCompleted ? "REFAZER" : "COMEÇAR";
 
-        {/* Main circle — sinks on press */}
-        <Animated.View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: palette.bg,
-            alignItems: "center",
-            justifyContent: "center",
-            transform: [{ translateY: pressTranslateY }],
-          }}
-        >
-          {iconEl[node.type]}
-        </Animated.View>
-      </View>
+  const bubbleContent = (
+    <View style={styles.bubbleCard}>
+      <Text style={styles.bubbleTitle} numberOfLines={2}>
+        {node.label}
+      </Text>
+      <Text style={styles.bubbleSubtitle}>
+        Lição {node.position} de {node.total}
+      </Text>
+      <TouchableOpacity
+        onPress={handleStartPress}
+        activeOpacity={0.85}
+        style={styles.bubbleStartButton}
+      >
+        <Text style={styles.bubbleStartText}>
+          {actionLabel}{" "}
+          <Text style={styles.bubbleStartTextXp}>+{node.xpReward} XP</Text>
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
-  if (!onPress) return <View style={{ alignItems: "center" }}>{inner}</View>;
+  const circleStack = (
+    <View style={{ width: size, height: size + 5 }}>
+      {/* Pulse ring — current lesson only */}
+      {isCurrent && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -14,
+            left: -14,
+            width: size + 28,
+            height: size + 28,
+            borderRadius: (size + 28) / 2,
+            backgroundColor: palette.bg,
+            opacity: pulseOpacity,
+            transform: [{ scale: pulseScale }],
+          }}
+        />
+      )}
+
+      <View
+        style={{
+          position: "absolute",
+          top: 5,
+          left: 0,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: palette.shadow,
+        }}
+      />
+
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: palette.bg,
+          alignItems: "center",
+          justifyContent: "center",
+          transform: [{ translateY: pressTranslateY }],
+        }}
+      >
+        {iconEl[node.type]}
+      </Animated.View>
+    </View>
+  );
+
+  if (!onPress) {
+    return (
+      <View style={styles.nodeOuter}>
+        {circleStack}
+      </View>
+    );
+  }
+
+  const handleTap = () => {
+    // Any unlocked node: open the preview bubble as a Modal overlay anchored
+    // to the node's screen position. Closes on outside tap. The bubble's own
+    // COMEÇAR/REFAZER button navigates.
+    nodeRef.current?.measureInWindow((x, y, w, h) => {
+      setAnchor({ x, y, w, h });
+      setPreviewing(true);
+    });
+  };
+
+  // Compute bubble position so it sits centered below the node, clamped to screen.
+  const bubbleStyle = anchor
+    ? (() => {
+        const centerX = anchor.x + anchor.w / 2;
+        let left = centerX - BUBBLE_WIDTH / 2;
+        left = Math.max(12, Math.min(left, SCREEN_WIDTH - BUBBLE_WIDTH - 12));
+        const top = anchor.y + anchor.h + 12;
+        const arrowLeft = centerX - left - 7; // arrow base half-width = 7
+        return { left, top, arrowLeft };
+      })()
+    : null;
 
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={{ alignItems: "center" }}
-    >
-      {inner}
-    </Pressable>
+    <View style={styles.nodeOuter}>
+      <Pressable
+        ref={nodeRef}
+        onPress={handleTap}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        {circleStack}
+      </Pressable>
+
+      <Modal
+        visible={previewing && !!bubbleStyle}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closePreview}
+      >
+        <Pressable style={styles.previewBackdrop} onPress={closePreview}>
+          {bubbleStyle && (
+            <View
+              pointerEvents="box-none"
+              style={[
+                styles.previewBubbleAnchor,
+                { left: bubbleStyle.left, top: bubbleStyle.top, width: BUBBLE_WIDTH },
+              ]}
+            >
+              <View
+                style={[
+                  styles.bubbleArrow,
+                  { marginLeft: bubbleStyle.arrowLeft },
+                ]}
+              />
+              {/* Pressable swallow so taps inside the card don't dismiss */}
+              <Pressable onPress={() => {}}>{bubbleContent}</Pressable>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
 
@@ -370,17 +437,24 @@ const AnimatedMascot = ({
   );
 };
 
-// ── Unit path with SVG connection line ────────────────────────────────────
-interface NodeCenter {
-  x: number;
-  y: number;
-}
-
+// ── Unit path ─────────────────────────────────────────────────────────────
 const LockedUnitCard = () => (
   <View style={styles.lockedUnitCard}>
     <Lock size={36} color={colors.mutedForeground} />
     <Text style={styles.lockedUnitMsg}>
-      Termine a unidade anterior para desbloquea
+      Termine a unidade anterior para desbloquear
+    </Text>
+  </View>
+);
+
+const GeneratingUnitCard = () => (
+  <View style={styles.lockedUnitCard}>
+    <ActivityIndicator size="large" color={colors.primary} />
+    <Text style={styles.lockedUnitMsg}>
+      Estamos preparando sua próxima unidade…
+    </Text>
+    <Text style={styles.lockedUnitMsgSub}>
+      Isso pode levar alguns instantes.
     </Text>
   </View>
 );
@@ -388,94 +462,19 @@ const LockedUnitCard = () => (
 const UnitNodePath = ({ unit }: { unit: Unit }) => {
   const navigation = useNavigation<Nav>();
 
-  if (unit.status === 'skeleton' || unit.status === 'generating') {
+  if (unit.status === 'generating') {
+    return <GeneratingUnitCard />;
+  }
+  if (unit.status === 'skeleton') {
     return <LockedUnitCard />;
   }
 
-  const [nodeCenters, setNodeCenters] = useState<NodeCenter[]>([]);
-  const [pathHeight, setPathHeight] = useState(0);
-  const layoutsRef = useRef<Array<{ y: number } | null>>(
-    unit.nodes.map(() => null),
-  );
-
-  const onNodeLayout = (idx: number) => (e: any) => {
-    const { y } = e.nativeEvent.layout;
-    layoutsRef.current[idx] = { y };
-    if (layoutsRef.current.every((v) => v !== null)) {
-      const centers = unit.nodes.map((n, i) => {
-        const sz = n.type === "star" ? 68 : 58;
-        const hasLabel = n.status === "current" && !!n.label;
-        return {
-          x: SCREEN_WIDTH / 2 + n.offsetX,
-          y: layoutsRef.current[i]!.y + (hasLabel ? LABEL_H : 0) + sz / 2,
-        };
-      });
-      setNodeCenters(centers);
-    }
-  };
-
-  const buildPath = (fromIdx: number, toIdx: number): string => {
-    if (nodeCenters.length <= toIdx) return "";
-    let d = "";
-    for (let i = fromIdx; i < toIdx; i++) {
-      const p1 = nodeCenters[i];
-      const p2 = nodeCenters[i + 1];
-      if (!p1 || !p2) continue;
-      if (!d) d = `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
-      const cy = ((p1.y + p2.y) / 2).toFixed(1);
-      d += ` C ${p1.x.toFixed(1)} ${cy} ${p2.x.toFixed(1)} ${cy} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-    }
-    return d;
-  };
-
-  // Last index of a non-locked node (completed or current)
-  const lastActiveIdx = unit.nodes.reduce(
-    (last, n, i) => (n.status !== "locked" ? i : last),
-    -1,
-  );
-
-  const allPath = buildPath(0, unit.nodes.length - 1);
-  const activePath = lastActiveIdx > 0 ? buildPath(0, lastActiveIdx) : "";
-
   return (
-    <View
-      style={styles.lessonPath}
-      onLayout={(e) => setPathHeight(e.nativeEvent.layout.height)}
-    >
-      {/* SVG connection line */}
-      {pathHeight > 0 && nodeCenters.length === unit.nodes.length && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Svg width={SCREEN_WIDTH} height={pathHeight}>
-            {!!allPath && (
-              <Path
-                d={allPath}
-                stroke="#D0D0D0"
-                strokeWidth={5}
-                fill="none"
-                strokeLinecap="round"
-              />
-            )}
-            {!!activePath && (
-              <Path
-                d={activePath}
-                stroke="#F5A623"
-                strokeWidth={5}
-                fill="none"
-                strokeLinecap="round"
-              />
-            )}
-          </Svg>
-        </View>
-      )}
-
+    <View style={styles.lessonPath}>
       {unit.nodes.map((node, nodeIdx) => {
         const mascot = unit.mascots.find((m) => m.nodeIdx === nodeIdx);
         return (
-          <View
-            key={node.id}
-            style={styles.nodeRow}
-            onLayout={onNodeLayout(nodeIdx)}
-          >
+          <View key={node.id} style={styles.nodeRow}>
             <View style={{ transform: [{ translateX: node.offsetX }] }}>
               <NodeIcon
                 node={node}
@@ -501,12 +500,14 @@ type UnitSection = Unit & { data: Unit[] };
 
 // ── Main screen ────────────────────────────────────────────────────────────
 const HomeScreen = () => {
+  const navigation = useNavigation<Nav>();
   const [sections, setSections] = useState<UnitSection[]>([]);
   const [streak, setStreak] = useState(0);
   const [level, setLevel] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
 
   const loadData = useCallback(async () => {
     try {
@@ -599,27 +600,37 @@ const HomeScreen = () => {
     );
   }
 
+  const goToProfile = () => navigation.navigate("Profile");
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.container}>
         {/* Fixed stats bar */}
         <View style={styles.statsBar}>
-          <View style={styles.statBadge}>
+          <TouchableOpacity
+            style={styles.statBadge}
+            onPress={goToProfile}
+            activeOpacity={0.7}
+          >
             <Image
               source={require("../../assets/images/icon-fire.png")}
               style={styles.statIcon}
               resizeMode="contain"
             />
             <Text style={styles.statValue}>{streak}</Text>
-          </View>
-          <View style={styles.statBadge}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statBadge}
+            onPress={goToProfile}
+            activeOpacity={0.7}
+          >
             <Image
               source={require("../../assets/images/icon-energy.png")}
               style={styles.statIcon}
               resizeMode="contain"
             />
             <Text style={styles.statValue}>{level}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <SectionList
@@ -669,6 +680,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 24,
     lineHeight: 20,
+  },
+  lockedUnitMsgSub: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    paddingHorizontal: 24,
+    opacity: 0.7,
   },
 
   // Stats bar (fixed above list)
@@ -763,34 +781,84 @@ const styles = StyleSheet.create({
 
   // Nodes
   nodeOuter: { alignItems: "center", paddingBottom: 2 },
-  labelContainer: { alignItems: "center", marginBottom: 10 },
-  labelBubble: {
+
+  // Floating preview bubble — absolute so it doesn't shift the row/path layout
+  bubbleAnchor: {
+    position: "absolute",
+    left: -120,
+    right: -120,
+    alignItems: "center",
+    zIndex: 50,
+  },
+  bubbleArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 8,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: colors.foreground,
+  },
+  bubbleCard: {
     backgroundColor: colors.foreground,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: radius.xl,
+    width: 240,
+    maxWidth: SCREEN_WIDTH - 32,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  bubbleTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    letterSpacing: 0.4,
+  },
+  bubbleSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 2,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  bubbleStartButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
     borderRadius: radius.full,
+    alignSelf: "stretch",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     elevation: 3,
   },
-  labelText: {
+  bubbleStartText: {
+    color: colors.primaryForeground,
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: "#fff",
   },
-  labelArrow: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 7,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: colors.foreground,
-    marginTop: 1,
+  bubbleStartTextXp: {
+    color: "#FFD901",
+  },
+
+  // Modal overlay (tap-triggered preview)
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  previewBubbleAnchor: {
+    position: "absolute",
+    alignItems: "flex-start",
   },
 });
 

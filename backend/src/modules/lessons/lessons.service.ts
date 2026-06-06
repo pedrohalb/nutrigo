@@ -17,14 +17,24 @@ function checkAnswer(payload: any, userAnswer: UserAnswer): boolean {
   return false;
 }
 
-function todayDate() {
-  return new Date(new Date().toDateString());
+// Prisma's @db.Date round-trips through UTC midnight, so all date math here
+// uses UTC components to stay consistent with what gets persisted.
+function todayUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-function yesterdayDate() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return new Date(d.toDateString());
+function yesterdayUTC(): Date {
+  return new Date(todayUTC().getTime() - 24 * 60 * 60 * 1000);
+}
+
+function sameDayUTC(a: Date | null | undefined, b: Date | null | undefined): boolean {
+  if (!a || !b) return false;
+  return (
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate()
+  );
 }
 
 export const lessonsService = {
@@ -57,6 +67,8 @@ export const lessonsService = {
     const profile = await profileRepo.findByUserId(userId);
     if (!profile) throw new AppError(404, 'NOT_FOUND', 'Profile not found');
 
+    const wasAlreadyCompleted = lesson.status === 'completed';
+
     // Score each answer
     const questionMap = new Map(lesson.questions.map((q) => [q.id, q]));
     const results = answers.map(({ questionId, userAnswer }) => {
@@ -66,7 +78,7 @@ export const lessonsService = {
       return { questionId, isCorrect, explanation: (q.payload as any).explanation ?? '' };
     });
 
-    // Persist attempts
+    // Persist attempts (always — so revision reflects the latest run)
     await lessonsRepo.upsertAttempts(
       userId,
       lessonId,
@@ -77,20 +89,50 @@ export const lessonsService = {
       }))
     );
 
-    // XP calculation
     const correctCount = results.filter((r) => r.isCorrect).length;
-    const today = todayDate();
-    const lastActive = profile.lastActiveDate
-      ? new Date(new Date(profile.lastActiveDate).toDateString())
-      : null;
-    const isFirstToday = !lastActive || lastActive.getTime() !== today.getTime();
+    const today = todayUTC();
+    const lastActive = profile.lastActiveDate ? new Date(profile.lastActiveDate) : null;
+    const isFirstToday = !sameDayUTC(lastActive, today);
+
+    // Replay: half XP, no streak change, no unit/next-lesson side effects.
+    if (wasAlreadyCompleted) {
+      const replayXp = Math.floor((correctCount * 20 + 100) / 2);
+
+      // Level update (replay XP still counts toward leveling)
+      let newXp = profile.xp + replayXp;
+      let newLevel = profile.level;
+      let levelUp = false;
+      while (newXp >= newLevel * 1000) {
+        newXp -= newLevel * 1000;
+        newLevel++;
+        levelUp = true;
+      }
+
+      await profileRepo.update(userId, {
+        xp: newXp,
+        level: newLevel,
+      } as any);
+
+      return {
+        results,
+        xpEarned: replayXp,
+        levelUp,
+        newLevel,
+        streakDays: profile.streakDays,
+        streakIncremented: false,
+        unitCompleted: false,
+        replay: true,
+      };
+    }
+
+    // First completion — full XP, streak math, unlock next.
     const streakBonus = isFirstToday ? 10 : 0;
     const xpEarned = correctCount * 20 + 100 + streakBonus;
 
-    // Streak update
+    // Streak update — only the first lesson of the day bumps it
     let newStreak = profile.streakDays;
     if (isFirstToday) {
-      const wasYesterday = lastActive?.getTime() === yesterdayDate().getTime();
+      const wasYesterday = sameDayUTC(lastActive, yesterdayUTC());
       newStreak = wasYesterday ? profile.streakDays + 1 : 1;
     }
 
@@ -143,6 +185,15 @@ export const lessonsService = {
       }
     }
 
-    return { results, xpEarned, levelUp, streakDays: newStreak, unitCompleted };
+    return {
+      results,
+      xpEarned,
+      levelUp,
+      newLevel,
+      streakDays: newStreak,
+      streakIncremented: isFirstToday,
+      unitCompleted,
+      replay: false,
+    };
   },
 };
