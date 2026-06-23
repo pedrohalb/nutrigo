@@ -15,7 +15,7 @@ import { X, CheckCircle, Flag } from "lucide-react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootStackParamList } from "../../App";
+import type { RootStackParamList } from "../types/navigation";
 import { colors, radius } from "../theme";
 import type {
   MultipleChoiceQuestion,

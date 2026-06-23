@@ -31,7 +31,7 @@ import {
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../App";
+import type { RootStackParamList } from "../types/navigation";
 import BottomNav from "../components/BottomNav";
 import { colors, radius } from "../theme";
 import type { LessonNode, MascotImage, Unit } from "../types/lesson";

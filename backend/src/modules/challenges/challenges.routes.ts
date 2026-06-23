@@ -1,14 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth';
+import { asyncHandler } from '../../middleware/asyncHandler';
 import { challengesController } from './challenges.controller';
 
 const router = Router();
 
-router.get('/challenges', requireAuth, (req, res, next) =>
-  challengesController.getChallenges(req as any, res, next)
-);
-router.post('/challenges/:id/claim', requireAuth, (req, res, next) =>
-  challengesController.claim(req as any, res, next)
-);
+router.get('/challenges', requireAuth, asyncHandler(challengesController.getChallenges));
+router.post('/challenges/:id/claim', requireAuth, asyncHandler(challengesController.claim));
 
 export { router as challengesRoutes };

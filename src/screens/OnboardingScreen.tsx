@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -15,11 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
+import type { RootStackParamList } from '../types/navigation';
 import { colors, radius } from '../theme';
 import { OBJECTIVES, TOPICS, GOALS } from '../mocks/onboarding';
 import { meApi, type GoalKind } from '../services/api/me';
 import { unitsApi } from '../services/api/units';
+import FormField from '../components/FormField';
+import PrimaryButton from '../components/PrimaryButton';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -153,16 +154,12 @@ const OnboardingScreen = () => {
             <View style={styles.stepContent}>
               <Text style={styles.heading}>Primeiro, como podemos te chamar?</Text>
               <Text style={styles.subtitle}>Queremos conhecer você melhor!</Text>
-              <View style={styles.fieldset}>
-                <Text style={styles.legend}>Nome</Text>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="example"
-                  placeholderTextColor={colors.mutedForeground}
-                />
-              </View>
+              <FormField
+                label="Nome"
+                value={name}
+                onChangeText={setName}
+                placeholder="example"
+              />
             </View>
           )}
 
@@ -223,18 +220,12 @@ const OnboardingScreen = () => {
         </ScrollView>
 
         <View style={styles.bottomButton}>
-          <TouchableOpacity
+          <PrimaryButton
+            label="Próximo"
             onPress={handleNext}
-            disabled={!canProceed() || loading}
-            style={[styles.primaryButton, (!canProceed() || loading) && styles.disabled]}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Próximo</Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+            disabled={!canProceed()}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -267,17 +258,6 @@ const styles = StyleSheet.create({
   stepContent: { flex: 1 },
   heading: { fontSize: 24, fontWeight: '700', color: colors.foreground, marginBottom: 8 },
   subtitle: { fontSize: 14, color: colors.mutedForeground, marginBottom: 24 },
-  fieldset: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 12,
-    backgroundColor: colors.card,
-  },
-  legend: { fontSize: 12, color: colors.mutedForeground, marginBottom: 2 },
-  input: { fontSize: 16, color: colors.foreground, padding: 0, margin: 0 },
   optionsList: { gap: 12 },
   optionButton: {
     flexDirection: 'row',
@@ -313,19 +293,6 @@ const styles = StyleSheet.create({
   checkboxSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   goalDetail: { fontSize: 14, color: colors.mutedForeground },
   bottomButton: { paddingHorizontal: 32, paddingBottom: 32 },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  primaryButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
-  disabled: { opacity: 0.5 },
   buildingContainer: {
     flex: 1,
     justifyContent: 'center',

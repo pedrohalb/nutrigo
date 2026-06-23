@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
+import { allowScreenCaptureAsync } from 'expo-screen-capture';
 
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
@@ -16,8 +17,6 @@ import ChallengesScreen from './src/screens/ChallengesScreen';
 import StudyGuideScreen from './src/screens/StudyGuideScreen';
 import type { RootStackParamList } from './src/types/navigation';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
-
-export type { RootStackParamList };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -52,6 +51,10 @@ function RootNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    allowScreenCaptureAsync();
+  }, []);
+
   return (
     <AuthProvider>
       <NavigationContainer>

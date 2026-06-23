@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
+import ScreenHeader from "../components/ScreenHeader";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../App";
+import type { RootStackParamList } from "../types/navigation";
 import { colors, radius } from "../theme";
 import BottomNav from "../components/BottomNav";
 import ChallengeCard from "../components/ChallengeCard";
@@ -103,16 +103,7 @@ const ChallengesScreen = () => {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Profile")}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ArrowLeft size={24} color={colors.foreground} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>desafios</Text>
-          <View style={{ width: 24 }} />
-        </View>
+        <ScreenHeader title="desafios" onBack={() => navigation.navigate("Profile")} />
 
         {loading ? (
           <ActivityIndicator
@@ -162,20 +153,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.foreground,
   },
   scrollContent: {
     paddingHorizontal: 20,

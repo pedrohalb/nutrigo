@@ -30,7 +30,7 @@ const PasswordField = ({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedForeground}
-        secureTextEntry={!show}
+        secureTextEntry={!show && !__DEV__}
       />
       <TouchableOpacity
         onPress={onToggle}

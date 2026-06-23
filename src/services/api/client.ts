@@ -1,6 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const BASE_URL = 'http://192.168.1.9:3000/api';
+function getBaseUrl(): string {
+  // Em Expo Go, debuggerHost é algo como "192.168.1.8:8081"
+  // Extraímos só o IP e trocamos a porta pelo backend (3000)
+  const host = Constants.expoGoConfig?.debuggerHost;
+  if (host) {
+    const ip = host.split(':')[0];
+    return `http://${ip}:3000/api`;
+  }
+  // Fallback para produção (troque pelo URL real do backend)
+  return 'http://localhost:3000/api';
+}
+
+const BASE_URL = getBaseUrl();
 
 async function request<T>(
   path: string,

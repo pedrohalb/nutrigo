@@ -24,8 +24,9 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootStackParamList } from "../../App";
+import type { RootStackParamList } from "../types/navigation";
 import AIChat from "../components/AIChat";
+import ScreenHeader from "../components/ScreenHeader";
 import { colors, radius } from "../theme";
 import type { LessonData, StudyGuideQuestion } from "../types/studyGuide";
 import { studyGuideApi } from "../services/api/studyGuide";
@@ -298,16 +299,7 @@ const StudyGuideScreen = () => {
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Home")}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ArrowLeft size={24} color={colors.foreground} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>guia de estudos</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader title="guia de estudos" onBack={() => navigation.navigate("Home")} />
 
       <KeyboardAvoidingView
         style={styles.contentArea}
@@ -488,20 +480,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.foreground,
   },
   contentArea: {
     flex: 1,

@@ -3,7 +3,7 @@ import { View, TouchableOpacity, Text } from 'react-native';
 import { Home, Trophy, User } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../App';
+import type { RootStackParamList } from '../../types/navigation';
 import { colors } from '../../styles/colors';
 import { styles } from './styles';
 import { challengesApi } from '../../services/api/challenges';
